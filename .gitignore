@@ -1,0 +1,3 @@
+#Comment both lines below if you rather backup your notes to git.
+data/*
+!data/.info
