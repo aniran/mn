@@ -3,7 +3,7 @@
 
 function msg_quit () { echo -e "$1" && exit 1; }
 
-source ~/bin/fmt_font.sh 2>/dev/null || msg_quit "Unable to load font formatting" 
+source ~/init_source/fmt_font.src 2>/dev/null || msg_quit "Unable to load font formatting" 
 
 CMD_NAME=$(basename ${0%.sh})
 LOCALDIR=$(dirname $0)
@@ -11,14 +11,14 @@ DATADIR=$LOCALDIR/data          ; mkdir -p $DATADIR
 M_NOTES=$DATADIR/m_notes        ; touch $M_NOTES
 TAGS_FILE_PATH=$DATADIR/tags    ; touch $TAGS_FILE_PATH
 
-function ff_topic ()   { fmt_font color white bold "$1"; }
-function ff_index ()   { fmt_font color light_yellow "$1"; }
-function ff_content () { fmt_font color dark_gray "$1"; }
-function ff_tags  ()   { fmt_font color cyan "$1"; }
+function ff_topic ()   { echo $(fmt_font bold color white "$1"); }
+function ff_index ()   { echo $(fmt_font color light_yellow "$1"); }
+function ff_content () { echo $(fmt_font color dark_gray "$1"); }
+function ff_tags  ()   { echo $(fmt_font color cyan "$1"); }
 
-USAGE="$(ff_topic 'NAME')\n\
-    \e[1m${CMD_NAME}\e[0m - Mnemonic Notebook: manage snippets using simple CLI tools.\n\
-\n$(ff_topic 'SYNTAX')\n\
+USAGE="$(ff_topic NAME)\n\
+    ${CMD_NAME} - Mnemonic Notebook: manage snippets using simple CLI tools.\n\
+\n$(ff_topic SYNTAX)\n\
     $CMD_NAME {new|grep|list|edit|rm}
 " 
 function print_usage () { echo -e "$USAGE"; }

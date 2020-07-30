@@ -1,3 +1,4 @@
 #Comment both lines below if you rather backup your notes to git.
+*.swp
 data/*
 !data/.info
