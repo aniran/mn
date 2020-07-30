@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
-#set -x
+source ~/init_source/script_ctl.src
+source ~/init_source/fmt_font.src     || msg_quit "Unable to load font formatting" 
 
-function msg_quit () { echo -e "$1" && exit 1; }
-
-source ~/init_source/fmt_font.src 2>/dev/null || msg_quit "Unable to load font formatting" 
-
+HOMEDIR=~
 CMD_NAME=$(basename ${0%.sh})
-LOCALDIR=$(dirname $0)
-DATADIR=$LOCALDIR/data          ; mkdir -p $DATADIR 
-M_NOTES=$DATADIR/m_notes        ; touch $M_NOTES
-TAGS_FILE_PATH=$DATADIR/tags    ; touch $TAGS_FILE_PATH
+DATADIR=$HOMEDIR/var/$CMD_NAME ; mkdir -p $DATADIR 
+M_NOTES=$DATADIR/m_notes       ; touch $M_NOTES
+TAGS_FILE_PATH=$DATADIR/tags   ; touch $TAGS_FILE_PATH
 
 function ff_topic ()   { echo $(fmt_font bold color white "$1"); }
 function ff_index ()   { echo $(fmt_font color light_yellow "$1"); }
