@@ -6,7 +6,7 @@ source ~/init_source/fmt_font.src     || msg_quit "Unable to load font formattin
 BASH_V=$(bash_version)
 HOMEDIR=~
 CMD_NAME=$(basename ${0%.sh})
-DATADIR=$(grep datadir $(pwd -P $0)/config 2>/dev/null || echo "")
+DATADIR=$(grep datadir $(pwd -P $0)/config 2>/dev/null | cut -d ' ' -f 2)
 DATADIR=${DATADIR:-$HOMEDIR/var/$CMD_NAME} ; mkdir -p $DATADIR 
 METADATA=$DATADIR/metadata     ; [ -f $METADATA ] || echo "index 0" > $METADATA
 NOTES_DIR=$DATADIR/notes       ; mkdir -p $NOTES_DIR
@@ -154,7 +154,28 @@ function fn_install () {
     ln -s $(pwd -P $0)"/$complete_src" ~/init_source/$complete_src
 }
 
-[ -z "$1" ] && print_usage && exit 1
+function mn_shell () {
+    tput reset
+    echo "Welcome to $CMD_NAME shell. Type :exit to quit, :help for instructions"
+    local BKIFS="$IFS"; IFS=""; local CUR_STR=""; local ANS=""
+    while [ ! "$ANS" = $'\e' ]; do
+        local LEN_CUR_STR=${#CUR_STR}
+        local LEN_M1=$(( $LEN_CUR_STR - 1 ))
+        tput cup 0 0
+        echo "Press [ESCAPE] to exit."
+        echo -n "$CUR_STR"
+        read -d '' -n 1 ANS
+        if   [ "$ANS" = $'\x0a' ]; then break
+        elif [ "$ANS" = $'\x20' ]; then CUR_STR+=" "
+        elif [ "$ANS" = $'\x7f' ]; then echo -ne "\b"; [ "$LEN_M1" -gt 0 ] && CUR_STR=${CUR_STR:0:$LEN_M1}
+        else CUR_STR+="$ANS"
+        fi
+    done
+    echo -e "\n$CUR_STR"
+    IFS="$BKIFS"
+}
+
+[ -z "$1" ] && mn_shell && exit 0
 
 case $1 in
     *help)   print_usage                   ;;
