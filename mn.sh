@@ -6,6 +6,7 @@ source ~/init_source/fmt_font.src     || msg_quit "Unable to load font formattin
 BASH_V=$(bash_version)
 HOMEDIR=~
 CMD_NAME=$(basename ${0%.sh})
+#source $(pwd -P $0)"/${CMD_NAME}.src"
 DATADIR=$HOMEDIR/var/$CMD_NAME ; mkdir -p $DATADIR 
 METADATA=$DATADIR/metadata     ; [ -f $METADATA ] || echo "index 0" > $METADATA
 NOTES_DIR=$DATADIR/notes       ; mkdir -p $NOTES_DIR
@@ -13,12 +14,12 @@ TAGS=$DATADIR/tags             ; touch $TAGS
 TERM_COLS=$([ -n "$COLUMNS" ] && echo $COLUMNS || tput cols)
 DEFAULT_MODE="0600"
 
-function ff_topic   () { echo $(fmt_font bold color white   "$1"); }
+function ff_topic   () { echo $(fmt_font bold  color white  "$1"); }
 function ff_index   () { echo $(fmt_font color light_yellow "$1"); }
 function ff_content () { echo $(fmt_font color dark_gray    "$1"); }
 function ff_tags    () { echo $(fmt_font color cyan         "$1"); }
 
-function fn_file_exists () { [ -f "$1" ] || msg_quit "$1: not found."; }
+function fn_file_exists  () { [ -f "$1" ] || msg_quit "$1: not found."; }
 function fn_preview_note () { head -c $TERM_COLS $NOTES_DIR/$1 2>/dev/null; }
 
 USAGE="$(ff_topic NAME)\n\
@@ -148,15 +149,21 @@ function rm_note () {
     list_notes
 }
 
+function fn_install () {
+    local complete_src=${CMD_NAME}.src
+    ln -s $(pwd -P $0)"/$complete_src" ~/init_source/$complete_src
+}
+
 [ -z "$1" ] && print_usage && exit 1
 
 case $1 in
-    *help)  print_usage                   ;;
-    new)    shift; new_note $*            ;;
-    grep)   shift; grep_note "$*"         ;;
-    edit)   shift; edit_note "$@"         ;;
-    list)   shift; list_notes             ;;
-    rm)     shift; rm_note $1             ;;
-    show)   shift; cat_note $1            ;;
-    *)      msg_quit "Invalid option: $1" ;;
+    *help)   print_usage                   ;;
+    new)     shift; new_note $*            ;;
+    grep)    shift; grep_note "$*"         ;;
+    edit)    shift; edit_note "$@"         ;;
+    list)    shift; list_notes             ;;
+    rm)      shift; rm_note $1             ;;
+    show)    shift; cat_note $1            ;;
+    install) shift; fn_install             ;;
+    *)       msg_quit "Invalid option: $1" ;;
 esac
