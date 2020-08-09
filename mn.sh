@@ -3,23 +3,26 @@
 source ~/init_source/script_ctl.src
 source ~/init_source/fmt_font.src     || msg_quit "Unable to load font formatting" 
 
+BASH_V=$(bash_version)
 HOMEDIR=~
 CMD_NAME=$(basename ${0%.sh})
 DATADIR=$HOMEDIR/var/$CMD_NAME ; mkdir -p $DATADIR 
 METADATA=$DATADIR/metadata     ; [ -f $METADATA ] || echo "index 0" > $METADATA
 NOTES_DIR=$DATADIR/notes       ; mkdir -p $NOTES_DIR
 TAGS=$DATADIR/tags             ; touch $TAGS
-TERM_COLS=$([ -z "$COLUMNS" ] && echo $COLUMNS || tput cols)
+TERM_COLS=$([ -n "$COLUMNS" ] && echo $COLUMNS || tput cols)
+DEFAULT_MODE="0600"
 
-function ff_topic ()   { echo $(fmt_font bold color white "$1"); }
-function ff_index ()   { echo $(fmt_font color light_yellow "$1"); }
-function ff_content () { echo $(fmt_font color dark_gray "$1"); }
-function ff_tags  ()   { echo $(fmt_font color cyan "$1"); }
+function ff_topic   () { echo $(fmt_font bold color white   "$1"); }
+function ff_index   () { echo $(fmt_font color light_yellow "$1"); }
+function ff_content () { echo $(fmt_font color dark_gray    "$1"); }
+function ff_tags    () { echo $(fmt_font color cyan         "$1"); }
 
-function fn_check_file_exists () { [ -f "$1" ] || msg_quit "$1: not found."; }
+function fn_file_exists () { [ -f "$1" ] || msg_quit "$1: not found."; }
+function fn_preview_note () { head -c $TERM_COLS $NOTES_DIR/$1 2>/dev/null; }
 
 USAGE="$(ff_topic NAME)\n\
-    ${CMD_NAME} - Mnemonic Notebook: manage snippets using simple CLI tools.\n\
+    ${CMD_NAME} - Mnemonic Notebook: A note-keeping bash script.\n\
 \n$(ff_topic SYNTAX)\n\
     $CMD_NAME {new|grep|list|edit|rm}
 " 
@@ -27,7 +30,7 @@ function print_usage () { echo -e "$USAGE"; }
 
 function get_param () {
     local param=$1; local file=$2
-    fn_check_file_exists $file
+    fn_file_exists $file
     echo $(grep $param $file 2>/dev/null || echo 0 0) | cut -d ' ' -f 2
 }
 
@@ -35,7 +38,7 @@ function set_param () {
     local  param=$1 ; shift
     local   file=$1 ; shift
     local values="$*"
-    fn_check_file_exists $file
+    fn_file_exists $file
 
     if grep -q $param $file; then
         sed -i .tmp "s/^${param} .*/${param} ${values}/g" $file 
@@ -44,43 +47,32 @@ function set_param () {
     fi
 }
 
-function add_note_tags () { echo "$1 $2"     >> $TAGS; }
-function del_note_tags () { sed "/^$note /d" -i $TAGS; }
-
 function new_note () {
+    #set -x
+    echo "\$1=$1"
+    [ -f "$1" ] && local import_file=$1 && shift
     local new_tags="$*"
+
     while [ -z "$new_tags" ]; do read -p "Tags: " new_tags; done
 
     local index=$(get_param index $METADATA) && index=$(( $index + 1 ))
     local new_file_path=$NOTES_DIR/$index
+    
+    [ -n "$import_file" ] && install -m $DEFAULT_MODE $import_file $new_file_path 
 
     vim $new_file_path \
-        && echo "Saving note $(ff_index $index): $(ff_tags $new_tags)" \
-        && echo "$index $new_tags" >> $TAGS \
-        && set_param index $METADATA $index 
+    && echo "Saving note $(ff_index $index): $(ff_tags $new_tags)" \
+    && echo "$index $new_tags" >> $TAGS \
+    && set_param index $METADATA $index 
 }
 
-#function grep_note () {
-#    local pattern="${1// /\\|}"
-#
-#    for ii in $(grep -l $pattern $DATADIR/note.* $TAGS); do
-#        local index=$(basename ${ii%.txt}); index=${index#note.}
-#        echo -e $(ff_index $index)":"
-#        grep -h --color=auto $pattern $ii
-#        echo ""
-#    done
-#}
-
 function grep_note () {
-    # Build list of all our notes and tags
     local files_list="$(ls ${NOTES_DIR}/* $TAGS)"
 
-    # Drill down files containing all words 
     for ii in "$*"; do
         files_list="$(grep $ii -l $files_list)" 
     done
 
-    # Showing what we got 
     local pattern="${1// /\\|}"
 
     for ii in $files_list; do
@@ -100,35 +92,38 @@ function list_notes () {
         local index=${ii%% *}
         local tags=${ii#* }
         echo "$(ff_index $index): "$(ff_tags "$tags")
-        echo -e $(ff_content "$(head -c $TERM_COLS $NOTES_DIR/${index} 2>/dev/null)")
-        echo ""
+        echo -e $(ff_content "$(fn_preview_note $index)") 
     done
     IFS="$bkifs"
+    echo ""
 }
 
-function validate_note_has_tags () {
-    grep -q $1 $TAGS || msg_quit "Tags not found for $id"
-}
+function validate_note_has_tags () { grep -q "^$1 " $TAGS || msg_quit "Tags not found for $id"; }
 
-function load_note_tags () {
-    grep "note.${1}.txt" $TAGS | cut -d ' ' -f 2-
-}
+function load_note_tags () { grep "^$1 " $TAGS | cut -d ' ' -f 2-; }
+
+function fn_remove_tags_from () { sed -i .tmp '/^'$1' /d' $TAGS; }
 
 function edit_note () {
     local id=$1
-    local note="note.${1}.txt" 
-    local note_file_path=$DATADIR/$note
+    local note_file_path=$NOTES_DIR/$id
 
     if [ -f "$note_file_path" ]; then
-        validate_note_has_tags $note 
+        validate_note_has_tags $id 
         local old_tags=$(load_note_tags $id); local new_tags=""
         
-        while [ -z "$new_tags" ]; do read -e -i "$old_tags" -p "Tags: " new_tags; done
+        if [ "$BASH_V" -gt "3" ]; then
+            while [ -z "$new_tags" ]; do read -e -i "$old_tags" -p "Tags: " new_tags; done
+        else
+            echo -e "Current tags: "$(ff_tags "$old_tags")
+            read -p "Type new tags or [ENTER] to keep the current: " new_tags
+            [ -z "$new_tags" ] && new_tags="$old_tags"
+        fi
 
         if [ "$new_tags" = "$old_tags" ]; then :
         else
-            del_note_tags $note
-            add_note_tags $note "$new_tags"
+            fn_remove_tags_from $id
+            echo "$id $new_tags" >> $TAGS  # Add line with new tag set
         fi
 
         vim $note_file_path
@@ -137,18 +132,31 @@ function edit_note () {
     fi
 }
 
+function cat_note () {
+    local id=$1
+    [ -z "$id" ] && return
+    local note=$NOTES_DIR/$id
+    [ -f "$note" ] && cat $note
+}
+
 function rm_note () {
-    [ -z "$1" ] && list_notes && return
+    local id=$1
+    [ -z "$id" ] && echo "id is empty" && list_notes && return
+    local note=$NOTES_DIR/$id
+    fn_remove_tags_from $id 
+    [ -f "$note" ] && rm $note
+    list_notes
 }
 
 [ -z "$1" ] && print_usage && exit 1
 
 case $1 in
-    *help) print_usage                   ;;
-    new)   shift; new_note "$*"          ;;
-    grep)  shift; grep_note "$*"         ;;
-    edit)  shift; edit_note "$@"         ;;
-    list)  shift; list_notes             ;;
-    rm)    shift; rm_note                ;;
-    *)     msg_quit "Invalid option: $1" ;;
+    *help)  print_usage                   ;;
+    new)    shift; new_note $*            ;;
+    grep)   shift; grep_note "$*"         ;;
+    edit)   shift; edit_note "$@"         ;;
+    list)   shift; list_notes             ;;
+    rm)     shift; rm_note $1             ;;
+    show)   shift; cat_note $1            ;;
+    *)      msg_quit "Invalid option: $1" ;;
 esac
