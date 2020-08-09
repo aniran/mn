@@ -15,7 +15,7 @@ function _complete_mn () {
         edit) echo ""; $MN list 
         ;;
         grep)   if [ "${#COMP_WORDS[@]}" -gt 2 ] && [ -n "${COMP_WORDS[2]}" ]; then
-                    
+                    :
                 fi
         ;;
         *) COMPREPLY=($(compgen -W "$_MN_MENU_OPTIONS" "${COMP_WORDS[1]}")) ;;
