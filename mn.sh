@@ -6,8 +6,8 @@ source ~/init_source/fmt_font.src     || msg_quit "Unable to load font formattin
 BASH_V=$(bash_version)
 HOMEDIR=~
 CMD_NAME=$(basename ${0%.sh})
-#source $(pwd -P $0)"/${CMD_NAME}.src"
-DATADIR=$HOMEDIR/var/$CMD_NAME ; mkdir -p $DATADIR 
+DATADIR=$(grep datadir $(pwd -P $0)/config 2>/dev/null || echo "")
+DATADIR=${DATADIR:-$HOMEDIR/var/$CMD_NAME} ; mkdir -p $DATADIR 
 METADATA=$DATADIR/metadata     ; [ -f $METADATA ] || echo "index 0" > $METADATA
 NOTES_DIR=$DATADIR/notes       ; mkdir -p $NOTES_DIR
 TAGS=$DATADIR/tags             ; touch $TAGS
