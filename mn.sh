@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #set -x
-source ~/init_source/script_ctl.src
-source ~/init_source/fmt_font.src     || msg_quit "Unable to load font formatting" 
+source ./script_ctl.src
+source ./fmt_font.src    
 
 BASH_V=$(bash_version)
 HOMEDIR=~
