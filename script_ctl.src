@@ -1,1 +1,14 @@
-/Users/aniran/init_source/script_ctl.src
+#!/bin/bash
+
+[ "$1" = "--debug" ] && set -x
+[ "$1" = "--error" ] && set -e
+
+function msg_quit () { echo -e "$1" && exit 1; }
+
+function bash_version () { 
+    bash --version \
+	| head -n 1 \
+	| sed 's/.* version \([0-9\.]*\).*/\1/g' \
+	| cut -d . -f 1 \
+	| tr -dc '[0-9]'
+}

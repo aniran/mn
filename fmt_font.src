@@ -1,1 +1,82 @@
-/Users/aniran/init_source/fmt_font.src
+#!/bin/bash
+#set -x
+
+function _print_color  () { printf "\e[${1}m${2}\e[0m"; }
+
+function fmt_font () {
+    case $1 in 
+        *color)
+            local fun_color=$1
+            local cod_color=$2
+            local msg="$3" 
+            shift 2
+
+            [ "${#}" -gt 1 ] && msg=$(fmt_font "$@")
+
+            case $fun_color in 
+                color)   
+                case $cod_color in
+                    def*)          _print_color 39  "$msg" ;;
+                    black)         _print_color 30  "$msg" ;;
+                    red)           _print_color 31  "$msg" ;;
+                    green)         _print_color 32  "$msg" ;;
+                    yellow)        _print_color 33  "$msg" ;;
+                    blue)          _print_color 34  "$msg" ;;
+               pink|magenta)       _print_color 35  "$msg" ;;
+                    cyan)          _print_color 36  "$msg" ;;
+              white|light_gray)    _print_color 37  "$msg" ;;
+                    dark_gray)     _print_color 90  "$msg" ;;
+                    light_red)     _print_color 91  "$msg" ;;
+                    light_green)   _print_color 92  "$msg" ;;
+                    light_yellow)  _print_color 93  "$msg" ;;
+                    light_blue)    _print_color 94  "$msg" ;;
+                    light_pink)    _print_color 95  "$msg" ;;
+                    light_cyan)    _print_color 96  "$msg" ;;
+                    light_gray)    _print_color 97  "$msg" ;;
+                    *) echo "${FUNCNAME[0]}: color not found: $cod_color" && return ;; 
+                esac
+                ;;
+                bgcolor) 
+                case $cod_color in
+                    def*)          _print_color 49  "$msg" ;;
+                    black)         _print_color 40  "$msg" ;;
+                    red)           _print_color 41  "$msg" ;;
+                    green)         _print_color 42  "$msg" ;;
+                    yellow)        _print_color 43  "$msg" ;;
+                    blue)          _print_color 44  "$msg" ;;
+                    magenta)       _print_color 45  "$msg" ;;
+                    cyan)          _print_color 46  "$msg" ;;
+                    light_gray)    _print_color 47  "$msg" ;;
+                    dark_gray)     _print_color 100 "$msg" ;;
+                    light_red)     _print_color 101 "$msg" ;;
+                    light_green)   _print_color 102 "$msg" ;;
+                    light_yellow)  _print_color 103 "$msg" ;;
+                    light_blue)    _print_color 104 "$msg" ;;
+                    light_magenta) _print_color 105 "$msg" ;;
+                    light_cyan)    _print_color 106 "$msg" ;;
+                    white)         _print_color 107 "$msg" ;;
+                    *) echo "${FUNCNAME[0]}: bgcolor not found: $cod_color" && return ;; 
+                esac
+                ;;
+            esac
+        ;;
+        *)  local fun_meta="$1"
+            local msg="$2" 
+            shift
+
+            [ "${#}" -gt 1 ] && msg=$(fmt_font "$@")
+
+            case $fun_meta in 
+                bold)           _print_color 1  "$msg" ;;
+                dim)            _print_color 2  "$msg" ;;
+                italic*)        _print_color 3  "$msg" ;;
+                under*|lower*)  _print_color 4  "$msg" ;;
+                blink)          _print_color 5  "$msg" ;;
+                rev*|inv*)      _print_color 7  "$msg" ;;
+                strike)         _print_color 9  "$msg" ;;
+                dbstrike)       _print_color 21 "$msg" ;;
+                *) echo "${FUNCNAME[0]}: Invalid mode: $fun_meta" && return ;; 
+            esac
+        ;;
+    esac
+}
