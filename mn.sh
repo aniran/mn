@@ -156,13 +156,12 @@ function fn_install () {
 
 function mn_shell () {
     tput reset
-    echo "Welcome to $CMD_NAME shell. Type :exit to quit, :help for instructions"
     local BKIFS="$IFS"; IFS=""; local CUR_STR=""; local ANS=""
     while [ ! "$ANS" = $'\e' ]; do
         local LEN_CUR_STR=${#CUR_STR}
         local LEN_M1=$(( $LEN_CUR_STR - 1 ))
         tput cup 0 0
-        echo "Press [ESCAPE] to exit."
+        echo "Welcome to $CMD_NAME shell. Type :exit to quit, :help for instructions."
         echo -n "$CUR_STR"
         read -d '' -n 1 ANS
         if   [ "$ANS" = $'\x0a' ]; then break
