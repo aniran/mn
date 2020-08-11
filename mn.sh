@@ -12,6 +12,8 @@ METADATA=$DATADIR/metadata     ; [ -f $METADATA ] || echo "index 0" > $METADATA
 NOTES_DIR=$DATADIR/notes       ; mkdir -p $NOTES_DIR
 TAGS=$DATADIR/tags             ; touch $TAGS
 TERM_COLS=$([ -n "$COLUMNS" ] && echo $COLUMNS || tput cols)
+TERM_ROWS=$([ -n "$LINES"   ] && echo $LINES   || tput lines)
+BLANK_LINE="$(printf %${TERM_COLS}s)"
 DEFAULT_MODE="0600"
 
 function ff_topic   () { echo $(fmt_font bold  color white  "$1"); }
@@ -21,6 +23,10 @@ function ff_tags    () { echo $(fmt_font color cyan         "$1"); }
 
 function fn_file_exists  () { [ -f "$1" ] || msg_quit "$1: not found."; }
 function fn_preview_note () { head -c $TERM_COLS $NOTES_DIR/$1 2>/dev/null; }
+function fn_unique_tags  () { 
+    (for ii in $(cat $TAGS | cut -d ' ' -f 2- ); do echo $ii; done;) | sort --unique 
+}
+function fn_unique_tags_inline () { fn_unique_tags | paste -s -; }
 
 USAGE="$(ff_topic NAME)\n\
     ${CMD_NAME} - Mnemonic Notebook: A note-keeping bash script.\n\
@@ -65,6 +71,18 @@ function new_note () {
     && echo "Saving note $(ff_index $index): $(ff_tags $new_tags)" \
     && echo "$index $new_tags" >> $TAGS \
     && set_param index $METADATA $index 
+}
+
+function grep_tags () {
+    local unique_tags="$(fn_unique_tags) "
+    if [ -z "$1" ]; then :
+    else
+        for ii in $*; do
+            [ -z "$ii" ] && continue
+            unique_tags=${unique_tags//$ii/}
+        done
+    fi
+    echo "$unique_tags"
 }
 
 function grep_note () {
@@ -156,22 +174,36 @@ function fn_install () {
 
 function mn_shell () {
     tput reset
-    local BKIFS="$IFS"; IFS=""; local CUR_STR=""; local ANS=""
+    local CUR_STR=""; local ANS=""
     while [ ! "$ANS" = $'\e' ]; do
-        local LEN_CUR_STR=${#CUR_STR}
-        local LEN_M1=$(( $LEN_CUR_STR - 1 ))
         tput cup 0 0
-        echo "Welcome to $CMD_NAME shell. Type :exit to quit, :help for instructions."
+        local LEN_CUR_STR=${#CUR_STR}
+        echo -e "Welcome to $CMD_NAME shell. Type :exit to quit, :help for instructions.\n"
+        local filtered_tags="$(grep_tags $CUR_STR | paste -s -)"
+        local formatted_ft=$(ff_tags "${filtered_tags}")
+        echo -e "${formatted_ft}${BLANK_LINE:0:$(( ${#BLANK_LINE} - ${#filtered_tags} ))}"
+        local BKIFS="$IFS"; IFS=""
+        tput cup 1 0
         echo -n "$CUR_STR"
         read -d '' -n 1 ANS
-        if   [ "$ANS" = $'\x0a' ]; then break
-        elif [ "$ANS" = $'\x20' ]; then CUR_STR+=" "
-        elif [ "$ANS" = $'\x7f' ]; then echo -ne "\b"; [ "$LEN_M1" -gt 0 ] && CUR_STR=${CUR_STR:0:$LEN_M1}
-        else CUR_STR+="$ANS"
+
+        if   [ "$ANS" = $'\x0a' ]; then # ENTER
+            case $CUR_STR in 
+                :exit|:quit) break ;;
+                :help) tput reset; print_usage ; read -n 1; tput reset ; CUR_STR="" ;;
+            esac
+        elif [ "$ANS" = $'\x20' ]; then # SPACE
+            CUR_STR+=" "
+        elif [ "$ANS" = $'\x7f' ]; then # BACKSPACE
+            [ "$LEN_CUR_STR" -gt 0 ] && CUR_STR=${CUR_STR:0:$(( $LEN_CUR_STR - 1 ))}
+            echo -ne "\b\b\b   \r$CUR_STR"
+        else                            # Any other
+            CUR_STR+="$ANS"
         fi
+        IFS="$BKIFS"
     done
+    tput reset
     echo -e "\n$CUR_STR"
-    IFS="$BKIFS"
 }
 
 [ -z "$1" ] && mn_shell && exit 0
