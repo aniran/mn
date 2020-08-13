@@ -17,10 +17,23 @@ CMD_NAME=$(basename ${0%.sh})
 CONFIG_FILE=$(pwd -P $0)/config
 DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
 
+#set -x
 if [ -f "$CONFIG_FILE" ]; then
     GIT_REPO=$(get_param 'git_repo' $CONFIG_FILE)
-    DATADIR=$( get_param 'data_dir' $CONFIG_FILE)
-    DATADIR=${DATADIR:-$HOMEDIR/var/$CMD_NAME} ; mkdir -p $DATADIR 
+    DATA_DIR=$(get_param 'data_dir' $CONFIG_FILE)
+    
+    if [ "$GIT_REPO" = "$DEFAULT_GIT_URL_MSG" ]; then
+        msg_quit "Please specify your git_repo from $CONFIG_FILE"
+    elif git -C $DATA_DIR status &>/dev/null; then
+        echo "git pullando" && read -n1
+        git -C $DATA_DIR pull
+    else
+        mkdir -p $DATA_DIR
+        echo "Cloning $GIT_REPO to $DATA_DIR"
+        [ "$(ls -A $DATA_DIR)" ] && msg_quit "$DATA_DIR is not empty, cant proceed."
+        git -C $DATA_DIR clone $GIT_REPO $DATA_DIR && echo "done." 
+        read -n1 -p "Press any key to continue..."
+    fi
 else
     echo -n "Creating config file..."
     echo -e "data_dir $HOMEDIR/var/$CMD_NAME\ngit_repo $DEFAULT_GIT_URL_MSG" > $CONFIG_FILE \
@@ -28,10 +41,13 @@ else
     && echo "Edit $CONFIG_FILE to setup git clone URL and data_dir path."
     exit 0
 fi
+read -n1
 
-METADATA=$DATADIR/metadata     ; [ -f "$METADATA" ] || echo "index 0" > $METADATA
-NOTES_DIR=$DATADIR/notes       ; mkdir -p $NOTES_DIR
-TAGS=$DATADIR/tags             ; touch $TAGS
+function fn_git () { git -C $DATA_DIR $*; }
+
+METADATA=$DATA_DIR/metadata     ; [ -f "$METADATA" ] || echo "index 0" > $METADATA
+NOTES_DIR=$DATA_DIR/notes       ; mkdir -p $NOTES_DIR
+TAGS=$DATA_DIR/tags             ; touch $TAGS
 TERM_COLS=$([ -n "$COLUMNS" ] && echo $COLUMNS || tput cols)
 TERM_ROWS=$([ -n "$LINES"   ] && echo $LINES   || tput lines)
 BLANK_LINE="$(printf %${TERM_COLS}s)"
@@ -48,18 +64,6 @@ function fn_unique_tags  () {
 }
 function fn_unique_tags_inline () { fn_unique_tags | paste -s -; }
 
-function fn_git () { git -C $DATADIR $*; }
-function fn_check_vcs  () { 
-    if [ "$GIT_REPO" = "$DEFAULT_GIT_URL_MSG" ]; then
-        msg_quit "Please specify your git_repo from $CONFIG_FILE"
-    elif fn_git status &>/dev/null; then
-        fn_git pull
-    else
-        echo "Cloning $GIT_REPO to $DATADIR"
-        [ "$(ls -A $DATADIR)" ] && msg_quit "$DATADIR is not empty, cant proceed."
-        fn_git clone $GIT_REPO && echo "done." 
-    fi
-}
 
 function fn_vcs_cmpush () { 
     local ftz=$(date +"%F %T %Z")
@@ -241,7 +245,6 @@ function mn_shell () {
     echo -e "Thanks for trying!"
 }
 
-fn_check_vcs
 [ -z "$1" ] && mn_shell && exit 0
 fn_git pull &
 
