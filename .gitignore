@@ -1,4 +1,5 @@
 #Comment both lines below if you rather backup your notes to git.
+config
 *.swp
 data/*
 !data/.info

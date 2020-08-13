@@ -3,12 +3,33 @@
 source ./script_ctl.src
 source ./fmt_font.src    
 
+function fn_file_exists  () { [ -f "$1" ] || msg_quit "$1: not found."; }
+function get_param () {
+    local param=$1; local file=$2
+    fn_file_exists $file
+    local loaded_param=$(grep $param $file 2>/dev/null | cut -d ' ' -f 2)
+    [ -n "$loaded_param" ] && echo $loaded_param 
+}
+
 BASH_V=$(bash_version)
 HOMEDIR=~
 CMD_NAME=$(basename ${0%.sh})
-DATADIR=$(grep datadir $(pwd -P $0)/config 2>/dev/null | cut -d ' ' -f 2)
-DATADIR=${DATADIR:-$HOMEDIR/var/$CMD_NAME} ; mkdir -p $DATADIR 
-METADATA=$DATADIR/metadata     ; [ -f $METADATA ] || echo "index 0" > $METADATA
+CONFIG_FILE=$(pwd -P $0)/config
+DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
+
+if [ -f "$CONFIG_FILE" ]; then
+    GIT_REPO=$(get_param 'git_repo' $CONFIG_FILE)
+    DATADIR=$( get_param 'data_dir' $CONFIG_FILE)
+    DATADIR=${DATADIR:-$HOMEDIR/var/$CMD_NAME} ; mkdir -p $DATADIR 
+else
+    echo -n "Creating config file..."
+    echo -e "data_dir $HOMEDIR/var/$CMD_NAME\ngit_repo $DEFAULT_GIT_URL_MSG" > $CONFIG_FILE \
+    && echo " done." \
+    && echo "Edit $CONFIG_FILE to setup git clone URL and data_dir path."
+    exit 0
+fi
+
+METADATA=$DATADIR/metadata     ; [ -f "$METADATA" ] || echo "index 0" > $METADATA
 NOTES_DIR=$DATADIR/notes       ; mkdir -p $NOTES_DIR
 TAGS=$DATADIR/tags             ; touch $TAGS
 TERM_COLS=$([ -n "$COLUMNS" ] && echo $COLUMNS || tput cols)
@@ -21,12 +42,31 @@ function ff_index   () { echo $(fmt_font color light_yellow "$1"); }
 function ff_content () { echo $(fmt_font color dark_gray    "$1"); }
 function ff_tags    () { echo $(fmt_font color cyan         "$1"); }
 
-function fn_file_exists  () { [ -f "$1" ] || msg_quit "$1: not found."; }
 function fn_preview_note () { head -c $TERM_COLS $NOTES_DIR/$1 2>/dev/null; }
 function fn_unique_tags  () { 
     (for ii in $(cat $TAGS | cut -d ' ' -f 2- ); do echo $ii; done;) | sort --unique 
 }
 function fn_unique_tags_inline () { fn_unique_tags | paste -s -; }
+
+function fn_git () { git -C $DATADIR $*; }
+function fn_check_vcs  () { 
+    if [ "$GIT_REPO" = "$DEFAULT_GIT_URL_MSG" ]; then
+        msg_quit "Please specify your git_repo from $CONFIG_FILE"
+    elif fn_git status &>/dev/null; then
+        fn_git pull
+    else
+        echo "Cloning $GIT_REPO to $DATADIR"
+        [ "$(ls -A $DATADIR)" ] && msg_quit "$DATADIR is not empty, cant proceed."
+        fn_git clone $GIT_REPO && echo "done." 
+    fi
+}
+
+function fn_vcs_cmpush () { 
+    local ftz=$(date +"%F %T %Z")
+    fn_git add '*' \
+    && fn_git commit -am "$ftz - $CMD_NAME backup." \
+    && fn_git push &
+}
 
 USAGE="$(ff_topic NAME)\n\
     ${CMD_NAME} - Mnemonic Notebook: A note-keeping bash script.\n\
@@ -35,11 +75,6 @@ USAGE="$(ff_topic NAME)\n\
 " 
 function print_usage () { echo -e "$USAGE"; }
 
-function get_param () {
-    local param=$1; local file=$2
-    fn_file_exists $file
-    echo $(grep $param $file 2>/dev/null || echo 0 0) | cut -d ' ' -f 2
-}
 
 function set_param () {
     local  param=$1 ; shift
@@ -203,10 +238,12 @@ function mn_shell () {
         IFS="$BKIFS"
     done
     tput reset
-    echo -e "\n$CUR_STR"
+    echo -e "Thanks for trying!"
 }
 
+fn_check_vcs
 [ -z "$1" ] && mn_shell && exit 0
+fn_git pull &
 
 case $1 in
     *help)   print_usage                   ;;
