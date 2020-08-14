@@ -15,35 +15,46 @@ BASH_V=$(bash_version)
 HOMEDIR=~
 CMD_NAME=$(basename ${0%.sh})
 CONFIG_FILE=$(pwd -P $0)/config
+GIT_LATEST_PULL=$(pwd -P $0)/.git_latest_pull
 DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
 
-#set -x
+function fn_git () { git -C $DATA_DIR $*; }
+function fn_check_latest_pull () {
+    local secs_latest_pull=$(( $(date +"%s") - $(cat $GIT_LATEST_PULL) ))
+    [ "$secs_latest_pull" -gt "$(( $GIT_PULL_INTERVAL * 3600 ))" ] \
+    && fn_git pull \
+    && echo $(date +"%s") > $GIT_LATEST_PULL
+}
+
 if [ -f "$CONFIG_FILE" ]; then
-    GIT_REPO=$(get_param 'git_repo' $CONFIG_FILE)
     DATA_DIR=$(get_param 'data_dir' $CONFIG_FILE)
+    GIT_REPO=$(get_param 'git_repo' $CONFIG_FILE)
+    GIT_PULL_INTERVAL=$(get_param 'pull_hours_interval' $CONFIG_FILE)
     
     if [ "$GIT_REPO" = "$DEFAULT_GIT_URL_MSG" ]; then
         msg_quit "Please specify your git_repo from $CONFIG_FILE"
     elif git -C $DATA_DIR status &>/dev/null; then
-        echo "git pullando" && read -n1
-        git -C $DATA_DIR pull
+        fn_check_latest_pull
     else
         mkdir -p $DATA_DIR
         echo "Cloning $GIT_REPO to $DATA_DIR"
         [ "$(ls -A $DATA_DIR)" ] && msg_quit "$DATA_DIR is not empty, cant proceed."
         git -C $DATA_DIR clone $GIT_REPO $DATA_DIR && echo "done." 
+        echo "$(date +\"%s\")" > $GIT_LATEST_PULL 
         read -n1 -p "Press any key to continue..."
     fi
 else
-    echo -n "Creating config file..."
-    echo -e "data_dir $HOMEDIR/var/$CMD_NAME\ngit_repo $DEFAULT_GIT_URL_MSG" > $CONFIG_FILE \
-    && echo " done." \
-    && echo "Edit $CONFIG_FILE to setup git clone URL and data_dir path."
+    echo "Creating config file"
+    echo -e "\
+# Where your notes tags and metadata will be saved.\n\
+data_dir $HOMEDIR/var/$CMD_NAME\n\
+\n# Github repo URL to backup your notes.\n\
+git_repo $DEFAULT_GIT_URL_MSG\n\
+\n# Script wont do a git pull again until we are over this many hours from latest pull.\n\
+pull_hours_interval 24" > $CONFIG_FILE \
+    && echo "Done. Edit $CONFIG_FILE to setup 'git_repo' URL and 'data_dir' path."
     exit 0
 fi
-read -n1
-
-function fn_git () { git -C $DATA_DIR $*; }
 
 METADATA=$DATA_DIR/metadata     ; [ -f "$METADATA" ] || echo "index 0" > $METADATA
 NOTES_DIR=$DATA_DIR/notes       ; mkdir -p $NOTES_DIR
@@ -73,12 +84,11 @@ function fn_vcs_cmpush () {
 }
 
 USAGE="$(ff_topic NAME)\n\
-    ${CMD_NAME} - Mnemonic Notebook: A note-keeping bash script.\n\
+    ${CMD_NAME} - A note-keeping script written in bash.\n\
 \n$(ff_topic SYNTAX)\n\
     $CMD_NAME {new|grep|list|edit|rm}
 " 
 function print_usage () { echo -e "$USAGE"; }
-
 
 function set_param () {
     local  param=$1 ; shift
@@ -142,7 +152,7 @@ function grep_note () {
 }
 
 function list_notes () {
-    [ -s "$TAGS" ] || return
+    [ -s "$TAGS" ] || msg_quit "$TAGS is empty."
 
     local bkifs="$IFS"
     IFS=$'\n'
@@ -217,7 +227,7 @@ function mn_shell () {
     while [ ! "$ANS" = $'\e' ]; do
         tput cup 0 0
         local LEN_CUR_STR=${#CUR_STR}
-        echo -e "Welcome to $CMD_NAME shell. Type :exit to quit, :help for instructions.\n"
+        echo -e "Welcome to $CMD_NAME shell. Type :q to quit, :h for instructions.\n"
         local filtered_tags="$(grep_tags $CUR_STR | paste -s -)"
         local formatted_ft=$(ff_tags "${filtered_tags}")
         echo -e "${formatted_ft}${BLANK_LINE:0:$(( ${#BLANK_LINE} - ${#filtered_tags} ))}"
@@ -228,8 +238,8 @@ function mn_shell () {
 
         if   [ "$ANS" = $'\x0a' ]; then # ENTER
             case $CUR_STR in 
-                :exit|:quit) break ;;
-                :help) tput reset; print_usage ; read -n 1; tput reset ; CUR_STR="" ;;
+                :exit|:q|:quit) break ;;
+                :help|:h) tput reset; print_usage ; read -n 1; tput reset ; CUR_STR="" ;;
             esac
         elif [ "$ANS" = $'\x20' ]; then # SPACE
             CUR_STR+=" "
@@ -246,10 +256,10 @@ function mn_shell () {
 }
 
 [ -z "$1" ] && mn_shell && exit 0
-fn_git pull &
 
 case $1 in
     *help)   print_usage                   ;;
+    shell)   shift; mn_shell               ;;
     new)     shift; new_note $*            ;;
     grep)    shift; grep_note "$*"         ;;
     edit)    shift; edit_note "$@"         ;;

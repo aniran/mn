@@ -1,5 +1,6 @@
 #Comment both lines below if you rather backup your notes to git.
 config
+.git_latest_pull
 *.swp
 data/*
 !data/.info
