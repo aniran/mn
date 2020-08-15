@@ -75,12 +75,14 @@ function fn_unique_tags  () {
 }
 function fn_unique_tags_inline () { fn_unique_tags | paste -s -; }
 
-
-function fn_vcs_cmpush () { 
+function commit_push () { 
     local ftz=$(date +"%F %T %Z")
-    fn_git add '*' \
-    && fn_git commit -am "$ftz - $CMD_NAME backup." \
-    && fn_git push &
+    local commit_msg_file=$DATA_DIR/commit_msg_file
+    echo "$ftz - $CMD_NAME backup." > $commit_msg_file \
+    [ "$(git -C $DATA_DIR status --porcelain=v1 2>/dev/null | wc -l)" -gt 0 ] \
+    && fn_git commit -a -F $commit_msg_file \
+    && fn_git push 
+    rm $commit_msg_file 
 }
 
 USAGE="$(ff_topic NAME)\n\
@@ -98,20 +100,19 @@ function set_param () {
 
     if grep -q $param $file; then
         sed -i .tmp "s/^${param} .*/${param} ${values}/g" $file 
+        rm ${file}.tmp
     else
         echo "$param $values" >> $file
     fi
 }
 
 function new_note () {
-    #set -x
-    echo "\$1=$1"
     [ -f "$1" ] && local import_file=$1 && shift
     local new_tags="$*"
 
     while [ -z "$new_tags" ]; do read -p "Tags: " new_tags; done
 
-    local index=$(get_param index $METADATA) && index=$(( $index + 1 ))
+    local index=$(( $(get_param index $METADATA) + 1 ))
     local new_file_path=$NOTES_DIR/$index
     
     [ -n "$import_file" ] && install -m $DEFAULT_MODE $import_file $new_file_path 
@@ -119,7 +120,9 @@ function new_note () {
     vim $new_file_path \
     && echo "Saving note $(ff_index $index): $(ff_tags $new_tags)" \
     && echo "$index $new_tags" >> $TAGS \
-    && set_param index $METADATA $index 
+    && set_param index $METADATA $index \
+    && fn_git add $new_file_path \
+    && commit_push
 }
 
 function grep_tags () {
@@ -135,17 +138,33 @@ function grep_tags () {
 }
 
 function grep_note () {
-    local files_list="$(ls ${NOTES_DIR}/* $TAGS)"
+    #set -x
+    [ -z "$1" ] && msg_quit "Empty grep query"
+    local whole_query="$*"
+    local lines_matching="$(cat $TAGS)"
 
-    for ii in "$*"; do
+    for ii in $whole_query; do
+        [ -z "$lines_matching" ] && break
+        echo "\$ii=$ii"
+        echo "\$lines_matching=$lines_matching"; read -n1
+        lines_matching="$(echo \"$lines_matching\" | grep $ii)"
+    done
+
+    echo "\$lines_matching=$lines_matching"; read -n1
+
+    local pattern="${1// /\\|}"
+    local tag_search_result=$(grep $pattern $TAGS | cut -d ' ' -f 1)
+
+    for ii in $tag_search_result; do
+        local tsr_files+="$NOTES_DIR/$ii "
+    done
+
+    for ii in "$whole_query"; do
         files_list="$(grep $ii -l $files_list)" 
     done
 
-    local pattern="${1// /\\|}"
-
     for ii in $files_list; do
-        local index=$(basename ${ii%.txt}); index=${index#note.}
-        echo -e $(ff_index $index)":"
+        echo -e $(ff_index $(basename $ii))":"
         grep -h --color=auto $pattern $ii
         echo ""
     done
@@ -170,7 +189,7 @@ function validate_note_has_tags () { grep -q "^$1 " $TAGS || msg_quit "Tags not 
 
 function load_note_tags () { grep "^$1 " $TAGS | cut -d ' ' -f 2-; }
 
-function fn_remove_tags_from () { sed -i .tmp '/^'$1' /d' $TAGS; }
+function fn_remove_tags_from () { sed -i .tmp '/^'$1' /d' $TAGS; rm ${TAGS}.tmp; }
 
 function edit_note () {
     local id=$1
@@ -194,7 +213,7 @@ function edit_note () {
             echo "$id $new_tags" >> $TAGS  # Add line with new tag set
         fi
 
-        vim $note_file_path
+        vim $note_file_path && commit_push
     else
         msg_quit "Note $(ff_index $id) not found."
     fi
@@ -231,6 +250,7 @@ function mn_shell () {
         local filtered_tags="$(grep_tags $CUR_STR | paste -s -)"
         local formatted_ft=$(ff_tags "${filtered_tags}")
         echo -e "${formatted_ft}${BLANK_LINE:0:$(( ${#BLANK_LINE} - ${#filtered_tags} ))}"
+        [[ "$CUR_STR" == *" "* ]] && grep_note $CUR_STR
         local BKIFS="$IFS"; IFS=""
         tput cup 1 0
         echo -n "$CUR_STR"
@@ -252,7 +272,7 @@ function mn_shell () {
         IFS="$BKIFS"
     done
     tput reset
-    echo -e "Thanks for trying!"
+    echo -e "Thanks for checking this app!"
 }
 
 [ -z "$1" ] && mn_shell && exit 0
@@ -261,7 +281,7 @@ case $1 in
     *help)   print_usage                   ;;
     shell)   shift; mn_shell               ;;
     new)     shift; new_note $*            ;;
-    grep)    shift; grep_note "$*"         ;;
+    grep)    shift; grep_note $*           ;;
     edit)    shift; edit_note "$@"         ;;
     list)    shift; list_notes             ;;
     rm)      shift; rm_note $1             ;;

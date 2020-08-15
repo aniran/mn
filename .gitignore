@@ -4,3 +4,4 @@ config
 *.swp
 data/*
 !data/.info
+commit_msg_file
