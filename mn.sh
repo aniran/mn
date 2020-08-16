@@ -236,6 +236,7 @@ function rm_note () {
     local id=$1
     [ -z "$id" ] && echo "id is empty" && list_notes && return
     rm $NOTES_DIR/$id $TAGS_DIR/$id 2>/dev/null
+    commit_push
     list_notes
 }
 
