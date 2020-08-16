@@ -293,5 +293,7 @@ case $1 in
     rm)      shift; rm_note $1               ;;
     show)    shift; cat_note $1              ;;
     install) shift; fn_install               ;;
+    --save)  shift; commit_push              ;;
+    --load)  shift; echo "0" > $GIT_LATEST_PULL && fn_check_latest_pull ;;
     *)       msg_quit "Invalid option: $1"   ;;
 esac
