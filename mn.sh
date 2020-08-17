@@ -204,10 +204,12 @@ function validate_note_has_tags () {
 function edit_note () {
     local id=$1
     local note_file_path=$NOTES_DIR/$id
+    local tags_file_path=$TAGS_DIR/$id
 
     if [ -f "$note_file_path" ]; then
         validate_note_has_tags $id 
-        local old_tags=$(cat $NOTES_DIR/$id); local new_tags=""
+        local old_tags=$(cat $tags_file_path)
+        local new_tags=""
         
         if [ "$BASH_V" -gt "3" ]; then
             while [ -z "$new_tags" ]; do read -e -i "$old_tags" -p "Tags: " new_tags; done
@@ -217,7 +219,7 @@ function edit_note () {
             [ -z "$new_tags" ] && new_tags="$old_tags"
         fi
 
-        [ "$new_tags" = "$old_tags" ] || echo "$new_tags" > $TAGS_DIR/$id 
+        [ "$new_tags" = "$old_tags" ] || echo "$new_tags" > $tags_file_path
 
         vim $note_file_path && commit_push
     else
