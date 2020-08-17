@@ -83,11 +83,13 @@ function fn_unique_tags_inline () { fn_unique_tags | paste -s -; }
 function commit_push () { 
     local ftz=$(date +"%F %T %Z")
     local commit_msg_file=$DATA_DIR/commit_msg_file
-    echo "$ftz - $CMD_NAME backup." > $commit_msg_file \
-    [ "$(git -C $DATA_DIR status --porcelain=v1 2>/dev/null | wc -l)" -gt 0 ] \
-    && fn_git commit -a -F $commit_msg_file \
-    && fn_git push 
-    rm $commit_msg_file 
+
+    if [ "$(git -C $DATA_DIR status --porcelain=v1 2>/dev/null | wc -l)" -gt 0 ]; then
+        echo "$ftz - $CMD_NAME backup." > $commit_msg_file 
+        fn_git commit -a -F $commit_msg_file 
+        fn_git push 
+        rm $commit_msg_file 
+    fi
 }
 
 USAGE="$(ff_topic NAME)\n\
