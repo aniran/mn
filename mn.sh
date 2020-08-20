@@ -19,8 +19,16 @@ CMD_NAME=$(basename ${0%.sh})
 CONFIG_FILE=$APP_HOME/config
 GIT_LATEST_PULL=$APP_HOME/.git_latest_pull
 DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
+GIT_MAJOR=cut -d . -f 1 <<<$(git --version | awk '{print $3}')
 
-function fn_git () { git -C $DATA_DIR $*; }
+function fn_git () { 
+    if [ "$GIT_MAJOR" -lt 2 ]; then
+        cd $DATA_DIR && git $* && cd -
+    else
+        git -C $DATA_DIR $*
+    fi
+}
+
 function fn_check_latest_pull () {
     [ ! -f "$GIT_LATEST_PULL" ] && echo "0" > $GIT_LATEST_PULL
     local secs_latest_pull=$(( $(date +"%s") - $(cat $GIT_LATEST_PULL) ))
@@ -231,7 +239,7 @@ function edit_note () {
 
 function cat_note () {
     local id=$1
-    [ -z "$id" ] && return
+    [ -z "$id" ] && msg_quit "USAGE: $CMD_NAME show <ID>"
     local note=$NOTES_DIR/$id
     [ -f "$note" ] && cat $note
 }
@@ -301,3 +309,4 @@ case $1 in
     --load)  shift; echo "0" > $GIT_LATEST_PULL && fn_check_latest_pull ;;
     *)       msg_quit "Invalid option: $1"   ;;
 esac
+#15

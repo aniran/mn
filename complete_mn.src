@@ -3,8 +3,10 @@
 MN=~/bin/mn.sh
 
 _MN_MENU_OPTIONS=$(\
-    tail ~/bin/mn.sh \
+    menu_size=$(tail -n 1 $MN | tr -d '#')
+    tail -n $menu_size ~/bin/mn.sh \
 	| grep ')' \
+	| grep -v '\-\-.*)' \
 	| awk '{print $1}' \
 	| tr -d '[*)]' \
 	| paste -s - \
