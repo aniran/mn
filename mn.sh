@@ -19,7 +19,7 @@ CMD_NAME=$(basename ${0%.sh})
 CONFIG_FILE=$APP_HOME/config
 GIT_LATEST_PULL=$APP_HOME/.git_latest_pull
 DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
-GIT_MAJOR=cut -d . -f 1 <<<$(git --version | awk '{print $3}')
+GIT_MAJOR=$(cut -d . -f 1 <<<$(git --version | awk '{print $3}'))
 
 function fn_git () { 
     if [ "$GIT_MAJOR" -lt 2 ]; then
