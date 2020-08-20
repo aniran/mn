@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #set -x
-APP_HOME=$(dirname $(readlink $0))
+APP_HOME=$(dirname $([ -L "$0" ] && readlink $0 || ls $0))
 
 source $APP_HOME/script_ctl.src
 source $APP_HOME/fmt_font.src    
