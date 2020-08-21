@@ -16,6 +16,8 @@ function get_param () {
 BASH_V=$(bash_version)
 HOMEDIR=~
 CMD_NAME=$(basename ${0%.sh})
+CMD_BASENAME=$(basename $0)
+CMD_REAL_PATH=$(pwd)/$(basename $0)
 CONFIG_FILE=$APP_HOME/config
 GIT_LATEST_PULL=$APP_HOME/.git_latest_pull
 DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
@@ -254,7 +256,8 @@ function rm_note () {
 
 function fn_install () {
     local complete_src=${CMD_NAME}.src
-    ln -s $(pwd -P $0)"/$complete_src" ~/init_source/$complete_src
+    [ -d ~/init_source ] && ln -s $(pwd -P $0)"/$complete_src" ~/init_source/$complete_src 2>/dev/null
+    [ -d ~/bin ]         && ln -s $CMD_REAL_PATH ~/bin/$CMD_BASENAME 2>/dev/null
 }
 
 function mn_shell () {
