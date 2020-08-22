@@ -23,13 +23,7 @@ GIT_LATEST_PULL=$APP_HOME/.git_latest_pull
 DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
 GIT_MAJOR=$(cut -d . -f 1 <<<$(git --version | awk '{print $3}'))
 
-function fn_git () { 
-    #if [ "$GIT_MAJOR" -lt 2 ]; then
-        cd $DATA_DIR && git $* && cd -
-    #else
-        #git -C $DATA_DIR $*
-    #fi
-}
+function fn_git () { cd $DATA_DIR && git $* && cd - ; }
 
 function fn_check_latest_pull () {
     [ ! -f "$GIT_LATEST_PULL" ] && echo "0" > $GIT_LATEST_PULL
@@ -261,41 +255,6 @@ function fn_install () {
     [ -d ~/bin ]         && ln -s $CMD_REAL_PATH ~/bin/$CMD_BASENAME 2>/dev/null
 }
 
-#function mn_shell () {
-#    tput reset
-#    local CUR_STR=""; local ANS=""
-#    while [ ! "$ANS" = $'\e' ]; do
-#        tput cup 0 0
-#        local LEN_CUR_STR=${#CUR_STR}
-#        echo -e "Welcome to $CMD_NAME shell. Type :q to quit, :h for instructions.\n"
-#        local filtered_tags="$(shell_grep_tags $CUR_STR | paste -s -)"
-#        local formatted_ft=$(ff_tags "${filtered_tags}")
-#        echo -e "${formatted_ft}${BLANK_LINE:0:$(( ${#BLANK_LINE} - ${#filtered_tags} ))}"
-#        [[ "$CUR_STR" == *" "* ]] && grep_note $CUR_STR
-#        local BKIFS="$IFS"; IFS=""
-#        tput cup 1 0
-#        echo -n "$CUR_STR"
-#        read -d '' -n 1 ANS
-#
-#        if   [ "$ANS" = $'\x0a' ]; then # ENTER
-#            case $CUR_STR in 
-#                :exit|:q|:quit) break ;;
-#                :help|:h) tput reset; print_usage ; read -n 1; tput reset ; CUR_STR="" ;;
-#            esac
-#        elif [ "$ANS" = $'\x20' ]; then # SPACE
-#            CUR_STR+=" "
-#        elif [ "$ANS" = $'\x7f' ]; then # BACKSPACE
-#            [ "$LEN_CUR_STR" -gt 0 ] && CUR_STR=${CUR_STR:0:$(( $LEN_CUR_STR - 1 ))}
-#            echo -ne "\b\b\b   \r$CUR_STR"
-#        else                            # Any other
-#            CUR_STR+="$ANS"
-#        fi
-#        IFS="$BKIFS"
-#    done
-#    tput reset
-#    echo -e "Thanks for checking this app!"
-#}
-
 function comptag () {
     [ -z "$1" ] && cat $UNIQUE_TAGS | paste -s - && return
     local intersect="$*"
@@ -317,7 +276,6 @@ case $1 in
     edit)    shift; edit_note "$@"    ;;
     rm)      shift; rm_note $1        ;;
     show)    shift; cat_note $1       ;;
-    #*) msg_quit "Invalid option: $1"  ;;
     *)       print_usage              ;;
 esac
 #15
