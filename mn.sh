@@ -268,7 +268,6 @@ case $1 in
     install) fn_install               ;;
     save)    commit_push              ;;
     load)    force_pull               ;;
-    --szut)  wc -l $UNIQUE_TAGS       ;;
     --ctag)  shift; comptag $*        ;;
     new)     shift; new_note $*       ;;
     grep)    shift; grep_note $*      ;;
