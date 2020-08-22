@@ -10,15 +10,17 @@ _MN_MENU_OPTIONS=$(\
 	| awk '{print $1}' \
 	| tr -d '[*)]' \
 	| paste -s - \
+	| sort
 )
 
 function _complete_mn () {
-    case ${COMP_WORDS[1]} in
-        edit) echo ""; $MN list 
-        ;;
-        grep)   if [ "${#COMP_WORDS[@]}" -gt 2 ] && [ -n "${COMP_WORDS[2]}" ]; then
-                    :
-                fi
+    local mn_command=${COMP_WORDS[1]}
+
+    case $mn_command in
+        edit) echo ""; $MN list ;;
+        tag*|grep) 
+            echo ""; mn $mn_command ${COMP_WORDS[@]:2} 
+            echo -n $COMP_LINE
         ;;
         *) COMPREPLY=($(compgen -W "$_MN_MENU_OPTIONS" "${COMP_WORDS[1]}")) ;;
     esac

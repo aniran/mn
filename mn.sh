@@ -72,6 +72,7 @@ fi
 METADATA=$DATA_DIR/metadata   ; [ -f "$METADATA" ] || echo "index 0" > $METADATA
 NOTES_DIR=$DATA_DIR/notes     ; mkdir -p $NOTES_DIR
 TAGS_DIR=$DATA_DIR/tags       ; mkdir -p $TAGS_DIR
+UNIQUE_TAGS=$DATA_DIR/unique_tags
 TERM_COLS=$([ -n "$COLUMNS" ] && echo $COLUMNS || tput cols)
 TERM_ROWS=$([ -n "$LINES"   ] && echo $LINES   || tput lines)
 BLANK_LINE="$(printf %${TERM_COLS}s)"
@@ -85,10 +86,13 @@ function ff_sel_tags () { echo $(fmt_font color light_cyan    "$1"); }
 
 function fn_preview_note () { echo -e $(ff_content "$(head -c $TERM_COLS $NOTES_DIR/$1 2>/dev/null)"); }
 
-function fn_unique_tags  () { 
-    (for ii in $(cat $TAGS_DIR/*); do echo $ii; done;) | sort --unique 
+function update_unique_tags () {
+    cat $TAGS_DIR/* \
+    | tr ' ' '\n' \
+    | sort \
+    | uniq \
+    | paste -s - > $UNIQUE_TAGS
 }
-function fn_unique_tags_inline () { fn_unique_tags | paste -s -; }
 
 function commit_push () { 
     local ftz=$(date +"%F %T %Z")
@@ -137,31 +141,38 @@ function new_note () {
     vim $new_file_path \
     && echo "Saving note $(ff_index $index): $(ff_tags $new_tags)" \
     && echo "$new_tags" > $TAGS_DIR/$index \
+    && update_unique_tags \
     && set_param index $METADATA $index \
     && fn_git add $new_file_path \
     && commit_push
 }
 
-function shell_grep_tags () {
-    local unique_tags="$(fn_unique_tags) "
-    if [ -z "$1" ]; then :
-    else
-        for ii in $*; do
-            [ -z "$ii" ] && continue
-            unique_tags=${unique_tags//$ii/}
-        done
-    fi
-    echo "$unique_tags"
+function grep_note () {
+    [ -z "$1" ] && return 0
+    local whole_query="$*"
+    local pattern="${whole_query// /\\|}"
+    local files_list="$(find $NOTES_DIR -type f)"
+
+    for ii in $whole_query; do
+        [ -z "$files_list" ] && return
+        local files_list="$(grep $ii -l $files_list)" 
+    done
+
+    for ii in $files_list; do
+        local index=$(basename $ii)
+        echo -e $(ff_index $index)": "$(ff_tags "$(cat $TAGS_DIR/$index)")
+        grep -h --color=auto $pattern $ii
+        echo ""
+    done
 }
 
 function grep_by_tags () {
-    [ -z "$1" ] && msg_quit "Empty grep query"
+    [ -z "$1" ] && echo -e $(ff_tags "$(cat $UNIQUE_TAGS)") && return 0
     local whole_query="$*"
-
-    local pattern="${1// /\\|}"
+    local pattern="${whole_query// /\\|}"
     local files_list="$(find $TAGS_DIR -type f)"
 
-    for ii in "$whole_query"; do
+    for ii in $whole_query; do
         [ -z "$files_list" ] && return
         local files_list="$(grep $ii -l $files_list)" 
     done
@@ -171,24 +182,6 @@ function grep_by_tags () {
         local remaining_tags=$(cat $ii | sed "s/$pattern//g")
         echo -e $(ff_index $index)":"$(ff_sel_tags "$whole_query")" "$(ff_tags "$remaining_tags")
         fn_preview_note $index
-        echo ""
-    done
-}
-
-function grep_note () {
-    [ -z "$1" ] && msg_quit "Empty grep query"
-    local whole_query="$*"
-
-    local pattern="${1// /\\|}"
-    local files_list="$(find $NOTES_DIR -type f)"
-
-    for ii in "$whole_query"; do
-        local files_list="$(grep $ii -l $files_list)" 
-    done
-
-    for ii in $files_list; do
-        echo -e $(ff_index $(basename $ii))":"
-        grep -h --color=auto $pattern $ii
         echo ""
     done
 }
@@ -231,7 +224,10 @@ function edit_note () {
             [ -z "$new_tags" ] && new_tags="$old_tags"
         fi
 
-        [ "$new_tags" = "$old_tags" ] || echo "$new_tags" > $tags_file_path
+        if [ ! "$new_tags" = "$old_tags" ]; then
+            echo "$new_tags" > $tags_file_path
+            update_unique_tags
+        fi
 
         vim $note_file_path && commit_push
     else
@@ -249,8 +245,9 @@ function cat_note () {
 function rm_note () {
     local id=$1
     [ -z "$id" ] && echo "id is empty" && list_notes && return
-    rm $NOTES_DIR/$id $TAGS_DIR/$id 2>/dev/null
-    commit_push
+    rm $NOTES_DIR/$id $TAGS_DIR/$id 2>/dev/null \
+    && update_unique_tags \
+    && commit_push \
     list_notes
 }
 
@@ -302,14 +299,15 @@ case $1 in
     shell)   shift; mn_shell                 ;;
     new)     shift; new_note $*              ;;
     grep)    shift; grep_note $*             ;;
-    tgrep)   shift; grep_by_tags $*          ;;
+    tag*)    shift; grep_by_tags $*          ;;
     edit)    shift; edit_note "$@"           ;;
     list)    shift; list_notes               ;;
     rm)      shift; rm_note $1               ;;
     show)    shift; cat_note $1              ;;
     install) shift; fn_install               ;;
     --save)  shift; commit_push              ;;
-    --load)  shift; echo "0" > $GIT_LATEST_PULL && fn_check_latest_pull ;;
+    --load)  echo "0" > $GIT_LATEST_PULL \
+             && fn_check_latest_pull         ;;
     *)       msg_quit "Invalid option: $1"   ;;
 esac
 #15
