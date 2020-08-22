@@ -16,17 +16,15 @@ _MN_MENU_OPTIONS=$(\
 function _complete_mnt () { 
     local len_cw=${#COMP_WORDS[@]}
     local lastwd=${COMP_WORDS[@]: -1}
-    local currwd=${COMP_WORDS[@]:1:$(($len_cw - 1))}
+    local currwd=${COMP_WORDS[@]:1:$(($len_cw - 2))}
     local unique_tags="$($MN --ctag $currwd)"
+
     if [ -z "$lastwd" ]; then
         COMPREPLY=($unique_tags)
     else
         COMPREPLY=($(compgen -W "$unique_tags" "$lastwd"))
     fi
-    [ "$len_cw" -gt 2 ] && echo "" && $MN tag $currwd 
 }
-
-function _complete_mng () { echo -en "\n$($MN grep $*)$COMP_LINE"; }
 
 function call_mn_tg () {
     local mn_command=$1; shift
@@ -51,4 +49,3 @@ function _complete_mn () {
 
 complete -F _complete_mn mn
 complete -F _complete_mnt mnt
-complete -F _complete_mng mng

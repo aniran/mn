@@ -296,8 +296,6 @@ function fn_install () {
 #    echo -e "Thanks for checking this app!"
 #}
 
-[ -z "$1" ] && mn_shell && exit 0
-
 function comptag () {
     [ -z "$1" ] && cat $UNIQUE_TAGS | paste -s - && return
     local intersect="$*"
@@ -307,7 +305,6 @@ function comptag () {
 
 case $1 in
     *help)   print_usage              ;;
-    shell)   mn_shell                 ;;
     list)    list_notes               ;;
     install) fn_install               ;;
     save)    commit_push              ;;
@@ -321,6 +318,6 @@ case $1 in
     rm)      shift; rm_note $1        ;;
     show)    shift; cat_note $1       ;;
     #*) msg_quit "Invalid option: $1"  ;;
-    *)       list_notes               ;;
+    *)       print_usage              ;;
 esac
 #15
