@@ -24,11 +24,11 @@ DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
 GIT_MAJOR=$(cut -d . -f 1 <<<$(git --version | awk '{print $3}'))
 
 function fn_git () { 
-    if [ "$GIT_MAJOR" -lt 2 ]; then
+    #if [ "$GIT_MAJOR" -lt 2 ]; then
         cd $DATA_DIR && git $* && cd -
-    else
-        git -C $DATA_DIR $*
-    fi
+    #else
+        #git -C $DATA_DIR $*
+    #fi
 }
 
 function fn_check_latest_pull () {
@@ -90,20 +90,24 @@ function update_unique_tags () {
     cat $TAGS_DIR/* \
     | tr ' ' '\n' \
     | sort \
-    | uniq \
-    | paste -s - > $UNIQUE_TAGS
+    | uniq > $UNIQUE_TAGS
 }
 
 function commit_push () { 
     local ftz=$(date +"%F %T %Z")
-    local commit_msg_file=$DATA_DIR/commit_msg_file
+    local sss=$(date +"%s")
+    local commit_msg_file=/tmp/commit_msg_file.$sss
 
-    if [ "$(git -C $DATA_DIR status --porcelain=v1 2>/dev/null | wc -l)" -gt 0 ]; then
+    if [ "$(fn_git status --porcelain=v1 2>/dev/null | wc -l)" -gt 0 ]; then
         echo "$ftz - $CMD_NAME backup." > $commit_msg_file 
         fn_git commit -a -F $commit_msg_file 
         fn_git push 
         rm $commit_msg_file 
     fi
+}
+
+function force_pull () {
+    echo "0" > $GIT_LATEST_PULL && fn_check_latest_pull
 }
 
 USAGE="$(ff_topic NAME)\n\
@@ -167,7 +171,7 @@ function grep_note () {
 }
 
 function grep_by_tags () {
-    [ -z "$1" ] && echo -e $(ff_tags "$(cat $UNIQUE_TAGS)") && return 0
+    [ -z "$1" ] && echo -e $(ff_tags "$(cat $UNIQUE_TAGS | paste -s -)") && return 0
     local whole_query="$*"
     local pattern="${whole_query// /\\|}"
     local files_list="$(find $TAGS_DIR -type f)"
@@ -207,6 +211,7 @@ function validate_note_has_tags () {
 }
 
 function edit_note () {
+    set -x
     local id=$1
     local note_file_path=$NOTES_DIR/$id
     local tags_file_path=$TAGS_DIR/$id
@@ -229,7 +234,7 @@ function edit_note () {
             update_unique_tags
         fi
 
-        vim $note_file_path && commit_push
+        vim $note_file_path && sleep 2 && commit_push
     else
         msg_quit "Note $(ff_index $id) not found."
     fi
@@ -257,57 +262,66 @@ function fn_install () {
     [ -d ~/bin ]         && ln -s $CMD_REAL_PATH ~/bin/$CMD_BASENAME 2>/dev/null
 }
 
-function mn_shell () {
-    tput reset
-    local CUR_STR=""; local ANS=""
-    while [ ! "$ANS" = $'\e' ]; do
-        tput cup 0 0
-        local LEN_CUR_STR=${#CUR_STR}
-        echo -e "Welcome to $CMD_NAME shell. Type :q to quit, :h for instructions.\n"
-        local filtered_tags="$(shell_grep_tags $CUR_STR | paste -s -)"
-        local formatted_ft=$(ff_tags "${filtered_tags}")
-        echo -e "${formatted_ft}${BLANK_LINE:0:$(( ${#BLANK_LINE} - ${#filtered_tags} ))}"
-        [[ "$CUR_STR" == *" "* ]] && grep_note $CUR_STR
-        local BKIFS="$IFS"; IFS=""
-        tput cup 1 0
-        echo -n "$CUR_STR"
-        read -d '' -n 1 ANS
-
-        if   [ "$ANS" = $'\x0a' ]; then # ENTER
-            case $CUR_STR in 
-                :exit|:q|:quit) break ;;
-                :help|:h) tput reset; print_usage ; read -n 1; tput reset ; CUR_STR="" ;;
-            esac
-        elif [ "$ANS" = $'\x20' ]; then # SPACE
-            CUR_STR+=" "
-        elif [ "$ANS" = $'\x7f' ]; then # BACKSPACE
-            [ "$LEN_CUR_STR" -gt 0 ] && CUR_STR=${CUR_STR:0:$(( $LEN_CUR_STR - 1 ))}
-            echo -ne "\b\b\b   \r$CUR_STR"
-        else                            # Any other
-            CUR_STR+="$ANS"
-        fi
-        IFS="$BKIFS"
-    done
-    tput reset
-    echo -e "Thanks for checking this app!"
-}
+#function mn_shell () {
+#    tput reset
+#    local CUR_STR=""; local ANS=""
+#    while [ ! "$ANS" = $'\e' ]; do
+#        tput cup 0 0
+#        local LEN_CUR_STR=${#CUR_STR}
+#        echo -e "Welcome to $CMD_NAME shell. Type :q to quit, :h for instructions.\n"
+#        local filtered_tags="$(shell_grep_tags $CUR_STR | paste -s -)"
+#        local formatted_ft=$(ff_tags "${filtered_tags}")
+#        echo -e "${formatted_ft}${BLANK_LINE:0:$(( ${#BLANK_LINE} - ${#filtered_tags} ))}"
+#        [[ "$CUR_STR" == *" "* ]] && grep_note $CUR_STR
+#        local BKIFS="$IFS"; IFS=""
+#        tput cup 1 0
+#        echo -n "$CUR_STR"
+#        read -d '' -n 1 ANS
+#
+#        if   [ "$ANS" = $'\x0a' ]; then # ENTER
+#            case $CUR_STR in 
+#                :exit|:q|:quit) break ;;
+#                :help|:h) tput reset; print_usage ; read -n 1; tput reset ; CUR_STR="" ;;
+#            esac
+#        elif [ "$ANS" = $'\x20' ]; then # SPACE
+#            CUR_STR+=" "
+#        elif [ "$ANS" = $'\x7f' ]; then # BACKSPACE
+#            [ "$LEN_CUR_STR" -gt 0 ] && CUR_STR=${CUR_STR:0:$(( $LEN_CUR_STR - 1 ))}
+#            echo -ne "\b\b\b   \r$CUR_STR"
+#        else                            # Any other
+#            CUR_STR+="$ANS"
+#        fi
+#        IFS="$BKIFS"
+#    done
+#    tput reset
+#    echo -e "Thanks for checking this app!"
+#}
 
 [ -z "$1" ] && mn_shell && exit 0
 
+function comptag () {
+    [ -z "$1" ] && cat $UNIQUE_TAGS | paste -s - && return
+    local intersect="$*"
+    local pattern=$(sed 's/\(\w*\)/\\<\1\\>/g' <<<$intersect | sed 's/ /\\|/g')
+    grep -v $pattern $UNIQUE_TAGS | paste -s -
+}
+
 case $1 in
-    *help)   print_usage                     ;;
-    shell)   shift; mn_shell                 ;;
-    new)     shift; new_note $*              ;;
-    grep)    shift; grep_note $*             ;;
-    tag*)    shift; grep_by_tags $*          ;;
-    edit)    shift; edit_note "$@"           ;;
-    list)    shift; list_notes               ;;
-    rm)      shift; rm_note $1               ;;
-    show)    shift; cat_note $1              ;;
-    install) shift; fn_install               ;;
-    --save)  shift; commit_push              ;;
-    --load)  echo "0" > $GIT_LATEST_PULL \
-             && fn_check_latest_pull         ;;
-    *)       msg_quit "Invalid option: $1"   ;;
+    *help)   print_usage              ;;
+    shell)   mn_shell                 ;;
+    list)    list_notes               ;;
+    install) fn_install               ;;
+    save)    commit_push              ;;
+    load)    force_pull               ;;
+    --szut)  wc -l $UNIQUE_TAGS       ;;
+    --ctag)  shift; comptag $*        ;;
+    new)     shift; new_note $*       ;;
+    grep)    shift; grep_note $*      ;;
+    tag*)    shift; grep_by_tags $*   ;;
+    edit)    shift; edit_note "$@"    ;;
+    rm)      shift; rm_note $1        ;;
+    show)    shift; cat_note $1       ;;
+    #*) msg_quit "Invalid option: $1"  ;;
+    *)       list_notes               ;;
 esac
 #15
