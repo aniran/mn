@@ -211,7 +211,6 @@ function validate_note_has_tags () {
 }
 
 function edit_note () {
-    set -x
     local id=$1
     local note_file_path=$NOTES_DIR/$id
     local tags_file_path=$TAGS_DIR/$id
@@ -234,7 +233,7 @@ function edit_note () {
             update_unique_tags
         fi
 
-        vim $note_file_path && sleep 2 && commit_push
+        vim $note_file_path && commit_push
     else
         msg_quit "Note $(ff_index $id) not found."
     fi
