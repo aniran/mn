@@ -38,12 +38,14 @@ function call_mn_tg () {
 function _complete_mn () {
     local mn_command=${COMP_WORDS[1]}
     local mn_args="${COMP_WORDS[@]:2}"
+    local currwd=${COMP_WORDS[-1]}
 
     case $mn_command in
         edit) echo ""; $MN list ;;
         tag*) $MN tag $mn_args ;;
         tag*|grep) call_mn_tg $mn_command $mn_args ;;
-        *) COMPREPLY=($(compgen -W "$_MN_MENU_OPTIONS" "${COMP_WORDS[1]}")) ;;
+        #*) COMPREPLY=($(compgen -W "$_MN_MENU_OPTIONS" "${COMP_WORDS[1]}")) ;;
+        *) COMPREPLY=($(compgen -W "$_MN_MENU_OPTIONS" "$currwd")) ;;
     esac
 }
 

@@ -22,6 +22,7 @@ CONFIG_FILE=$APP_HOME/config
 GIT_LATEST_PULL=$APP_HOME/.git_latest_pull
 DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
 GIT_MAJOR=$(cut -d . -f 1 <<<$(git --version | awk '{print $3}'))
+MD5=$(type -t md5sum &>/dev/null && echo md5sum || echo md5)
 
 function fn_git () { cd $DATA_DIR && git $* && cd - ; }
 
@@ -63,10 +64,10 @@ pull_hours_interval 24" > $CONFIG_FILE \
     exit 0
 fi
 
-METADATA=$DATA_DIR/metadata   ; [ -f "$METADATA" ] || echo "index 0" > $METADATA
 NOTES_DIR=$DATA_DIR/notes     ; mkdir -p $NOTES_DIR
 TAGS_DIR=$DATA_DIR/tags       ; mkdir -p $TAGS_DIR
-UNIQUE_TAGS=$DATA_DIR/unique_tags
+UNIQUE_TAGS_FILE=$DATA_DIR/unique_tags
+INDEX_TRUC_FILE=$DATA_DIR/index_truncate
 TERM_COLS=$([ -n "$COLUMNS" ] && echo $COLUMNS || tput cols)
 TERM_ROWS=$([ -n "$LINES"   ] && echo $LINES   || tput lines)
 BLANK_LINE="$(printf %${TERM_COLS}s)"
@@ -84,7 +85,15 @@ function update_unique_tags () {
     cat $TAGS_DIR/* \
     | tr ' ' '\n' \
     | sort \
-    | uniq > $UNIQUE_TAGS
+    | uniq > $UNIQUE_TAGS_FILE
+}
+
+function update_index_truncate () {
+    local len=1
+    while [ $((for ii in $(ls -1 $NOTES_DIR); do echo ${ii::$len}; done) | sort | uniq -d | wc -l) -gt 0 ]; do
+        len=$(( len + 1 ))
+    done
+    echo $len > $INDEX_TRUC_FILE
 }
 
 function commit_push () { 
@@ -128,19 +137,22 @@ function set_param () {
 function new_note () {
     [ -f "$1" ] && local import_file=$1 && shift
     local new_tags="$*"
+    local tmp_file=$(date +"%s").tmp
 
     while [ -z "$new_tags" ]; do read -p "Tags: " new_tags; done
 
-    local index=$(( $(get_param index $METADATA) + 1 ))
-    local new_file_path=$NOTES_DIR/$index
+    local tmp_file_path=$NOTES_DIR/$tmp_file
     
-    [ -n "$import_file" ] && install -m $DEFAULT_MODE $import_file $new_file_path 
+    [ -n "$import_file" ] && install -m $DEFAULT_MODE $import_file $tmp_file_path 
 
-    vim $new_file_path \
-    && echo "Saving note $(ff_index $index): $(ff_tags $new_tags)" \
-    && echo "$new_tags" > $TAGS_DIR/$index \
+    vim $tmp_file_path \
+    && local new_md5=$($MD5 $tmp_file_path | awk '{print $1}') \
+    && local new_file_path=$NOTES_DIR/$new_md5 \
+    && mv $tmp_file_path $new_file_path \
+    && echo "Saving note $(ff_index $new_md5): $(ff_tags $new_tags)" \
+    && echo "$new_tags" > $TAGS_DIR/$new_md5 \
     && update_unique_tags \
-    && set_param index $METADATA $index \
+    && update_index_truncate \
     && fn_git add $new_file_path \
     && commit_push
 }
@@ -150,6 +162,7 @@ function grep_note () {
     local whole_query="$*"
     local pattern="${whole_query// /\\|}"
     local files_list="$(find $NOTES_DIR -type f)"
+    local index_trunc=$(cat $INDEX_TRUC_FILE)
 
     for ii in $whole_query; do
         [ -z "$files_list" ] && return
@@ -157,15 +170,15 @@ function grep_note () {
     done
 
     for ii in $files_list; do
-        local index=$(basename $ii)
-        echo -e $(ff_index $index)": "$(ff_tags "$(cat $TAGS_DIR/$index)")
+        local id=$(basename $ii)
+        echo -e $(ff_index ${id::$index_trunc})": "$(ff_tags "$(cat $TAGS_DIR/$id)")
         grep -h --color=auto $pattern $ii
         echo ""
     done
 }
 
 function grep_by_tags () {
-    [ -z "$1" ] && echo -e $(ff_tags "$(cat $UNIQUE_TAGS | paste -s -)") && return 0
+    [ -z "$1" ] && echo -e $(ff_tags "$(cat $UNIQUE_TAGS_FILE | paste -s -)") && return 0
     local whole_query="$*"
     local pattern="${whole_query// /\\|}"
     local files_list="$(find $TAGS_DIR -type f)"
@@ -185,32 +198,31 @@ function grep_by_tags () {
 }
 
 function list_notes () {
-    [ "$(ls -1 $TAGS_DIR | wc -l)" = "0" ] && msg_quit "$TAGS_DIR is empty."
+    local wc_tags_dir=$(ls -1 $TAGS_DIR | wc -l)
+    [ "$wc_tags_dir" = "0" ] && msg_quit "$TAGS_DIR is empty."
+    local index_trunc=$(cat $INDEX_TRUC_FILE)
 
-    local bkifs="$IFS"
-    IFS=$'\n'
-    for ii in $(ls -1 $TAGS_DIR); do
-        local index=${ii%% *}
+#    local bkifs="$IFS"
+#    IFS=$'\n'
+    for ii in $(ls -1 $NOTES_DIR); do
+        #local index=${ii%% *}; index_trunc=${index::$index_trunc}
+        id_trunc=${ii::$index_trunc}
         local tags=$(cat $TAGS_DIR/$ii)
-        echo "$(ff_index $ii): "$(ff_tags "$tags")
+        echo "$(ff_index $id_trunc): "$(ff_tags "$tags")
         fn_preview_note $ii
     done
-    IFS="$bkifs"
+#    IFS="$bkifs"
     echo ""
-}
-
-function validate_note_has_tags () {
-    local tag=$TAGS_DIR/$1
-    [ -f "$tag" ] && [ -s "$tag" ] || msg_quit "Tags not found for $1"
 }
 
 function edit_note () {
     local id=$1
-    local note_file_path=$NOTES_DIR/$id
-    local tags_file_path=$TAGS_DIR/$id
+    local note_file_path=$(ls -1 $NOTES_DIR/${id}*)
+    local tags_file_path=$(ls -1 $TAGS_DIR/${id}*)
+    local note_old_md5=$(basename $note_file_path)
 
     if [ -f "$note_file_path" ]; then
-        validate_note_has_tags $id 
+        [ -f "$tags_file_path" ] && [ -s "$tags_file_path" ] || msg_quit "Tags not found for $id"
         local old_tags=$(cat $tags_file_path)
         local new_tags=""
         
@@ -227,7 +239,12 @@ function edit_note () {
             update_unique_tags
         fi
 
-        vim $note_file_path && commit_push
+        vim $note_file_path \
+        && local new_md5=$($MD5 $note_file_path | awk '{print $1}') \
+        && mv $note_file_path $NOTES_DIR/$new_md5 2>/dev/null \
+        && mv $TAGS_DIR/$note_old_md5 $TAGS_DIR/$new_md5 \
+        && update_index_truncate \
+        && commit_push
     else
         msg_quit "Note $(ff_index $id) not found."
     fi
@@ -236,7 +253,7 @@ function edit_note () {
 function cat_note () {
     local id=$1
     [ -z "$id" ] && msg_quit "USAGE: $CMD_NAME show <ID>"
-    local note=$NOTES_DIR/$id
+    local note=$(ls -1 $NOTES_DIR/$id*)
     [ -f "$note" ] && cat $note
 }
 
@@ -245,6 +262,7 @@ function rm_note () {
     [ -z "$id" ] && echo "id is empty" && list_notes && return
     rm $NOTES_DIR/$id $TAGS_DIR/$id 2>/dev/null \
     && update_unique_tags \
+    && update_index_truncate \
     && commit_push \
     list_notes
 }
@@ -256,10 +274,10 @@ function fn_install () {
 }
 
 function comptag () {
-    [ -z "$1" ] && cat $UNIQUE_TAGS | paste -s - && return
+    [ -z "$1" ] && cat $UNIQUE_TAGS_FILE | paste -s - && return
     local intersect="$*"
     local pattern=$(sed 's/\(\w*\)/\\<\1\\>/g' <<<$intersect | sed 's/ /\\|/g')
-    grep -v $pattern $UNIQUE_TAGS | paste -s -
+    grep -v $pattern $UNIQUE_TAGS_FILE | paste -s -
 }
 
 case $1 in
