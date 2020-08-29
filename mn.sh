@@ -75,16 +75,17 @@ DEFAULT_MODE="0600"
 
 function ff_topic    () { echo $(fmt_font bold  color white   "$1"); }
 function ff_index    () { echo $(fmt_font color light_yellow  "$1"); }
-function ff_content  () { echo $(fmt_font color dark_gray     "$1"); }
+function ff_content  () { echo $(fmt_font color dark_gray    "$1"); }
 function ff_tags     () { echo $(fmt_font color cyan          "$1"); }
 function ff_sel_tags () { echo $(fmt_font color light_cyan    "$1"); }
+function ff_protectd () { echo $(fmt_font bgcolor dark_gray color black "$1"); }
 
 function fn_preview_file () { 
     file_in=$1
     [ -f "$file_in" ] || msg_quit "File not found: $file_in"
 
     if [ "$(head -c 6 $file_in)" = "Salted" ]; then
-        echo -e $(ff_content "Encrypted")
+        echo -e $(ff_protectd "Encrypted")
     else
         echo -e $(ff_content "$(head -c $TERM_COLS $file_in 2>/dev/null)")
     fi
@@ -100,15 +101,18 @@ function update_unique_tags () {
 function fn_encrypt_file () {
     local note=$1
     echo -n "Enter password: "
-    openssl enc -aes-256-cbc -md sha512 -pbkdf2 -iter 80 -salt -in $note -out $note.$CMD_TIME -pass pass:$(read -s && echo $REPLY) \
-    && mv $note.$CMD_TIME $note
+    openssl enc -aes-256-cbc -md sha512 -pbkdf2 -iter 80 -salt -in $note -out $note.enc -pass pass:$(read -s && echo $REPLY) \
+        && mv $note $note.dec \
+        && mv $note.enc $note
 }
 
 function fn_decrypt_file () {
     local note=$1
     [ "$(head -c 6 $note)" = "Salted" ] \
-    && echo -n "Enter password: " \
-    && openssl enc -aes-256-cbc -md sha512 -pbkdf2 -iter 80 -salt -d -in $note -out $note.$CMD_TIME -pass pass:$(read -s && echo $REPLY)
+        && echo -n "Enter password: " \
+        && openssl enc -aes-256-cbc -md sha512 -pbkdf2 -iter 80 -salt -d -in $note -out $note.dec -pass pass:$(read -s && echo $REPLY) \
+        && mv $note $note.enc \
+        && mv $note.dec $note
 }
 
 function update_index_truncate () {
@@ -125,6 +129,7 @@ function commit_push () {
 
     if [ "$(fn_git status --porcelain=v1 2>/dev/null | wc -l)" -gt 0 ]; then
         echo "$ftz - $CMD_NAME backup." > $commit_msg_file 
+        fn_git add .
         fn_git commit -a -F $commit_msg_file 
         fn_git push 
         rm $commit_msg_file 
@@ -239,7 +244,8 @@ function list_notes () {
 
 function edit_note () {
     local id=$1
-    grep -q '^:pass.*' <<<$id && local password=T && shift && id=$1
+    grep -q '^:enc.*' <<<$id && local encrypt=T && shift && id=$1
+    grep -q '^:dec.*' <<<$id && local decrypt=T && shift && id=$1
 
     local note_file_path=$(ls -1 $NOTES_DIR/${id}*)
     local tags_file_path=$(ls -1 $TAGS_DIR/${id}*)
@@ -263,14 +269,24 @@ function edit_note () {
             update_unique_tags
         fi
 
+        fn_decrypt_file $note_file_path
+
         vim $note_file_path \
         && local new_md5=$($MD5 $note_file_path | awk '{print $1}') \
         && mv $note_file_path $NOTES_DIR/$new_md5 2>/dev/null \
-        && note_file_path=$NOTES_DIR/$new_md5 \
+        && new_note_file_path=$NOTES_DIR/$new_md5 \
         && mv $TAGS_DIR/$note_old_md5 $TAGS_DIR/$new_md5 \
         && update_index_truncate 
         
-        [ -n "$password" ] && fn_encrypt_file $note_file_path
+        # If user wants to remove password protection
+        [ "$decrypt" ] && rm $note_file_path.enc
+
+        # If user wants to add or just keep existing password protection
+        [ "$encrypt" ] || [ -f $note_file_path.enc ] \
+            && fn_encrypt_file $new_note_file_path \
+            && rm $new_note_file_path.dec
+
+        rm $note_file_path.enc 2>/dev/null        # Cleanup 
         commit_push
     else
         msg_quit "Note $(ff_index $id) not found."
@@ -284,7 +300,7 @@ function cat_note () {
     [ ! -f "$note" ] && msg_quit "File not found: $note"
     fn_decrypt_file $note
     cat $note
-    [ -f $note.$CMD_TIME ] && mv $note.$CMD_TIME $note
+    [ -f $note.enc ] && mv $note.enc $note
 }
 
 function rm_note () {
