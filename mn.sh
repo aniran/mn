@@ -182,9 +182,8 @@ function new_note () {
     && update_unique_tags \
     && update_index_truncate 
     
-    [ -n "$password" ] && fn_encrypt_file $new_file_path
+    [ "$password" ] && fn_encrypt_file $new_file_path && rm $new_file_path.dec
 
-    fn_git add $new_file_path 
     commit_push
 }
 
