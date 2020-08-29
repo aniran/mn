@@ -5,6 +5,11 @@
 
 function msg_quit () { echo -e "$1" && exit 1; }
 
+function fn_wcl () { 
+    [ -f "$1" ] || msg_quit "File not found: $1"
+    cat $1 | wc -l
+}
+
 function bash_version () { 
     bash --version \
 	| head -n 1 \
@@ -12,3 +17,13 @@ function bash_version () {
 	| cut -d . -f 1 \
 	| tr -dc '[0-9]'
 }
+
+TERM_COLS=$([ -n "$COLUMNS" ] && echo $COLUMNS || tput cols)
+TERM_ROWS=$([ -n "$LINES"   ] && echo $LINES   || tput lines)
+BLANK_LINE="$(printf %${TERM_COLS}s)"
+BASH_V=$(bash_version)
+HOMEDIR=~
+CMD_TIME=$(date +"%s")$RANDOM
+CMD_NAME=$(basename ${0%.sh})
+CMD_BASENAME=$(basename $0)
+CMD_REAL_PATH=$(pwd)/$(basename $0)
