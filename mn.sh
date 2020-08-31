@@ -24,7 +24,7 @@ for ii in $MD5 git openssl; do
     type -t $ii &>/dev/null || msg_quit "Missing dependency: $ii"
 done
 
-function fn_git () { cd $DATA_DIR && git $* && cd - ; }
+function fn_git () { cd $DATA_DIR && git $* && cd - &>/dev/null; }
 
 function fn_check_latest_pull () {
     [ ! -f "$GIT_LATEST_PULL" ] && echo "0" > $GIT_LATEST_PULL
