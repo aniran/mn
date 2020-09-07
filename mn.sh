@@ -242,9 +242,17 @@ function list_notes () {
 }
 
 function edit_note () {
+    #set -x
     local id=$1
-    grep -q '^:enc.*' <<<$id && local encrypt=T && shift && id=$1
-    grep -q '^:dec.*' <<<$id && local decrypt=T && shift && id=$1
+    while [ "${id::1}" = ":" ]; do
+        case $id in
+            :enc*) local encrypt=T     ;;
+            :dec*) local decrypt=T     ;;
+            :tag*) local change_tags=T ;;
+        esac
+        shift 
+        id=$1
+    done
 
     local note_file_path=$(ls -1 $NOTES_DIR/${id}*)
     local tags_file_path=$(ls -1 $TAGS_DIR/${id}*)
@@ -255,12 +263,14 @@ function edit_note () {
         local old_tags=$(cat $tags_file_path)
         local new_tags=""
         
-        if [ "$BASH_V" -gt "3" ]; then
-            while [ -z "$new_tags" ]; do read -e -i "$old_tags" -p "Tags: " new_tags; done
-        else
-            echo -e "Current tags: "$(ff_tags "$old_tags")
-            read -p "Type new tags or [ENTER] to keep the current: " new_tags
-            [ -z "$new_tags" ] && new_tags="$old_tags"
+        if [ "$change_tags" ]; then
+            if [ "$BASH_V" -gt "3" ]; then
+                while [ -z "$new_tags" ]; do read -e -i "$old_tags" -p "Tags: " new_tags; done
+            else
+                echo -e "Current tags: "$(ff_tags "$old_tags")
+                read -p "Type new tags or [ENTER] to keep the current: " new_tags
+                [ -z "$new_tags" ] && new_tags="$old_tags"
+            fi
         fi
 
         if [ ! "$new_tags" = "$old_tags" ]; then
@@ -272,18 +282,19 @@ function edit_note () {
 
         vim $note_file_path \
         && local new_md5=$($MD5 $note_file_path | awk '{print $1}') \
-        && mv $note_file_path $NOTES_DIR/$new_md5 2>/dev/null \
         && new_note_file_path=$NOTES_DIR/$new_md5 \
+        && mv $note_file_path $new_note_file_path 2>/dev/null \
         && mv $TAGS_DIR/$note_old_md5 $TAGS_DIR/$new_md5 \
         && update_index_truncate 
         
         # If user wants to remove password protection
         [ "$decrypt" ] && rm $note_file_path.enc
 
-        # If user wants to add or just keep existing password protection
-        [ "$encrypt" ] || [ -f $note_file_path.enc ] \
-            && fn_encrypt_file $new_note_file_path \
-            && rm $new_note_file_path.dec
+        # If user wants to keep or switch password protection on
+        if [ "$encrypt" ] || [ -f $note_file_path.enc ]; then
+            echo "Encrypting $new_note_file_path"
+            fn_encrypt_file $new_note_file_path && rm $new_note_file_path.dec
+        fi
 
         rm $note_file_path.enc 2>/dev/null        # Cleanup 
         commit_push

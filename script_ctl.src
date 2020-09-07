@@ -2,6 +2,8 @@
 
 [ "$1" = "--debug" ] && set -x
 [ "$1" = "--error" ] && set -e
+            
+CDBACK='cd - &>/dev/null'
 
 function msg_quit () { echo -e "$1" && exit 1; }
 
