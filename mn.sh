@@ -332,7 +332,8 @@ function fn_install () {
 function comptag () {
     [ -z "$1" ] && cat $UNIQUE_TAGS_FILE | paste -s - && return
     local intersect="$*"
-    local pattern=$(sed 's/\(\w*\)/\\<\1\\>/g' <<<$intersect | sed 's/ /\\|/g')
+    local pattern=$(sed -E 's/([[:alnum:]]*)/\\<\1\\>/g' <<<$intersect | sed 's/ /\\|/g')
+    echo "pattern=$pattern"
     grep -v $pattern $UNIQUE_TAGS_FILE | paste -s -
 }
 
