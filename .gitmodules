@@ -1,0 +1,3 @@
+[submodule "submodules/fastsitephp"]
+	path = submodules/fastsitephp
+	url = git@github.com:fastsitephp/fastsitephp.git

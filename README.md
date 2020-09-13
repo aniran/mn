@@ -11,5 +11,4 @@ The main objective is to keep a mnimalistic set of features while avoiding any d
 
 ## Thanks
 
-- Conrad Sollitt for the awesome [encrypt.sh](https://github.com/fastsitephp/fastsitephp/blob/master/scripts/shell/bash/encrypt.sh "FastSite PHP homepage") - leveraging all encryption in OpenSSL accross 3 platforms.
-
+- Conrad Sollitt for [encrypt.sh](https://github.com/fastsitephp/fastsitephp/blob/master/scripts/shell/bash/encrypt.sh "FastSite PHP homepage") - leveraging all encryption in OpenSSL accross 3 platforms.

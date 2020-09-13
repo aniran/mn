@@ -1,0 +1,1 @@
+submodules/fastsitephp/scripts/shell/bash/encrypt.sh
