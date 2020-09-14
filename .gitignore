@@ -5,3 +5,4 @@ config
 data/*
 !data/.info
 commit_msg_file
+encrypt.sh

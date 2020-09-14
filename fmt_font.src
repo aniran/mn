@@ -1,7 +1,12 @@
 #!/bin/bash
 #set -x
 
-function _print_color  () { printf "\e[${1}m${2}\e[0m"; }
+function _print_color  () { 
+    local clr=$1
+    local msg=$(sed 's/\\x/\\\\x/g' <<<$2)
+
+    printf "\e[${clr}m${msg}\e[0m"; 
+}
 
 function fmt_font () {
     case $1 in 
