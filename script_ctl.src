@@ -28,5 +28,6 @@ HOMEDIR=~
 CMD_TIME=$(date +"%s")$RANDOM
 CMD_BASENAME=$(basename $0)
 CMD_NAME=${CMD_BASENAME%.sh}
-CMD_REAL_PATH=$(readlink -e $0)
+READLINK=$(readlink --version &>/dev/null && echo 'readlink -e' || echo 'stat -f "%Y"')
+CMD_REAL_PATH=$($READLINK $0)
 CMD_REAL_DIR=$(dirname $CMD_REAL_PATH)

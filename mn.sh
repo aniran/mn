@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 #set -x
-APP_HOME=$(dirname $([ -L "$0" ] && readlink -e $0 || ls $0))
+READLINK=$(readlink --version &>/dev/null && echo 'readlink -e' || echo 'stat -f "%Y"')
+APP_HOME=$(dirname $([ -L $0 ] && $READLINK $0 || ls $0))
+APP_HOME=${APP_HOME#\"}
 
 source $APP_HOME/script_ctl.src
 source $APP_HOME/fmt_font.src    
