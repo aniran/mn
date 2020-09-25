@@ -21,7 +21,6 @@ GIT_LATEST_PULL=$APP_HOME/.git_latest_pull
 DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
 GIT_MAJOR=$(cut -d . -f 1 <<<$(git --version | awk '{print $3}'))
 MD5=$(type -t md5sum &>/dev/null && echo md5sum || echo md5)
-FS_ENC_PATH=$CMD_REAL_DIR/submodules/fastsitephp/scripts/shell/bash/encrypt.sh
 FS_ENC_TAG=1.4.2
 CMD_ENCRYPT=$APP_HOME/encrypt.sh
 
@@ -419,6 +418,7 @@ function rm_note () {
 function fn_install () {
     local complete_src=$CMD_REAL_DIR/complete_${CMD_NAME}.src
     local complete_src_basename=$(basename $complete_src)
+    local encrypt_script=$CMD_REAL_DIR/submodules/fastsitephp/scripts/shell/bash/encrypt.sh
 
     [ -d ~/init_source ] \
     && [ -f $complete_src ] \
@@ -427,16 +427,18 @@ function fn_install () {
     [ -d ~/bin ] \
     && ln -f -s $CMD_REAL_PATH ~/bin/$CMD_BASENAME 
 
-    local FS_ENC_DIR=$(dirname $FS_ENC_PATH)
+    local encrypt_script_dir=$(dirname $encrypt_script)
 
-    if [ -d $FS_ENC_DIR ]; then
-        fn_git $FS_ENC_DIR submodule init
-        fn_git $FS_ENC_DIR submodule update
-        fn_git $FS_ENC_DIR checkout $FS_ENC_TAG
-        install -m $MODE_USR_RWX $FS_ENC_PATH $CMD_REAL_DIR
+    if [ -d $encrypt_script_dir ]; then
+        fn_git $encrypt_script_dir submodule init
+        fn_git $encrypt_script_dir submodule update
+        fn_git $encrypt_script_dir checkout $FS_ENC_TAG
+        cp $encrypt_script $CMD_REAL_DIR
     else
-        msg_quit "Error checking out $FS_ENC_DIR"
+        msg_quit "Error checking out $encrypt_script_dir"
     fi
+
+    chmod $MODE_USR_RWX $CMD_ENCRYPT
 }
 
 function comptag () {
