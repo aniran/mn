@@ -2,6 +2,7 @@
 config
 .git_latest_pull
 *.swp
+*.txt
 data/*
 !data/.info
 commit_msg_file
