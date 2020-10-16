@@ -270,6 +270,7 @@ function new_note () {
 }
 
 function grep_note () {
+    #set -x
     [ -z "$1" ] && return 0
     local whole_query pattern files_list index_trunc files_list id
 
@@ -280,13 +281,13 @@ function grep_note () {
 
     for ii in "$whole_query"; do
         [ -z "$files_list" ] && return
-        files_list="$(grep "$ii" -l "$files_list")" 
+        files_list=$(grep -i "$ii" -l $files_list)
     done
 
-    for ii in "$files_list"; do
+    for ii in $files_list; do
         id=$(basename "$ii")
         echo -e $(ff_index ${id::$index_trunc})": "$(ff_tags "$(cat $TAGS_DIR/$id)")
-        grep -h --color=auto "$pattern" "$ii"
+        grep -hi --color=auto "$pattern" "$ii"
         echo ""
     done
 }
