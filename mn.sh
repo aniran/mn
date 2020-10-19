@@ -5,6 +5,17 @@ function init_imports () {
     CMD_READLINK=$(readlink --version &>/dev/null && echo 'readlink -e' || echo 'stat -f "%Y"')
     APP_HOME=$(dirname $([ -L "$0" ] && $CMD_READLINK "$0" || ls "$0"))
     APP_HOME="${APP_HOME#\"}"
+    CMD_ENCRYPT="$APP_HOME"/encrypt.sh
+    CONFIG_FILE="$APP_HOME"/config
+    GIT_LATEST_PULL="$APP_HOME"/.git_latest_pull
+    DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
+    GIT_MAJOR=$(cut -d . -f 1 <<<$(git --version | awk '{print $3}'))
+    MD5=$(type -t md5sum &>/dev/null && echo md5sum || echo md5)
+    FS_ENC_TAG=1.4.2
+
+    for ii in "$MD5" git openssl; do
+        type -t "$ii" &>/dev/null || msg_quit "Missing dependency: $ii"
+    done
 
     source "$APP_HOME"/script_ctl.src
     source "$APP_HOME"/fmt_font.src    
@@ -22,18 +33,6 @@ function get_param () {
 }
 
 init_imports
-
-CONFIG_FILE="$APP_HOME"/config
-GIT_LATEST_PULL="$APP_HOME"/.git_latest_pull
-DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
-GIT_MAJOR=$(cut -d . -f 1 <<<$(git --version | awk '{print $3}'))
-MD5=$(type -t md5sum &>/dev/null && echo md5sum || echo md5)
-FS_ENC_TAG=1.4.2
-CMD_ENCRYPT="$APP_HOME"/encrypt.sh
-
-for ii in "$MD5" git openssl; do
-    type -t "$ii" &>/dev/null || msg_quit "Missing dependency: $ii"
-done
 
 function fn_validate_alnum () {
     grep -q -E '^[[:alnum:]]+$' <<<"$1" || msg_quit "Argument '$1' should contain alpha-numeric characters"
