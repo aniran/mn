@@ -1,3 +1,6 @@
 [submodule "submodules/fastsitephp"]
 	path = submodules/fastsitephp
-	url = git@github.com:fastsitephp/fastsitephp.git
+	url = https://github.com/fastsitephp/fastsitephp.git
+[submodule "submodules/bats-core"]
+	path = submodules/bats-core
+	url = https://github.com/bats-core/bats-core.git
