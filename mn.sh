@@ -9,7 +9,7 @@ function init_imports () {
     CONFIG_FILE="$APP_HOME"/config
     GIT_LATEST_PULL="$APP_HOME"/.git_latest_pull
     DEFAULT_GIT_URL_MSG=INSERT_CLONE_URL
-    GIT_MAJOR=$(cut -d . -f 1 <<<$(git --version | awk '{print $3}'))
+    #GIT_MAJOR=$(cut -d . -f 1 <<<$(git --version | awk '{print $3}'))
     MD5=$(type -t md5sum &>/dev/null && echo md5sum || echo md5)
     FS_ENC_TAG=1.4.2
 
@@ -48,7 +48,7 @@ function fn_encryption () {
     [ ! -f "$file_in" ] && msg_quit "Error opening $file_in"
 
     if grep -q -E '^[de]$' <<<"$enc_command"; then
-        "$CMD_ENCRYPT" -"${enc_command}" -i "$file_in" -p $(read -s -p "Password: " && echo "$REPLY" ) 1>/dev/null
+        "$CMD_ENCRYPT" -"${enc_command}" -i "$file_in" -p $(read -rs -p "Password: " && echo "$REPLY" ) 1>/dev/null
         echo -e "\n"
     else
         msg_quit "Encryption command not found: '$enc_command'" 
